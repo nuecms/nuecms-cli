@@ -9,15 +9,17 @@ export default defineConfig({
     lib: {
       entry: path.resolve(__dirname, 'src/index.ts'),
       name: 'NueCMSCLI',
-      formats: ['es', 'cjs'],
-      fileName: (format) => (format === 'es' ? 'index.es.js' : 'index.js')
+      formats: ['es'],
+      fileName: 'index'
     },
     rollupOptions: {
-      external: ['prompts', 'mysql2'],
+      external: [ 'commander', '@inquirer/prompts', 'mysql2/promise', 'dotenv'],
       output: {
         globals: {
-          prompts: 'prompts',
-          mysql2: 'mysql2'
+          commander: 'commander',
+          '@inquirer/prompts': '@inquirer/prompts',
+          'mysql2/promise': 'mysql2/promise',
+          'dotenv': 'dotenv',
         }
       }
     },

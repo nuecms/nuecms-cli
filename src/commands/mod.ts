@@ -1,28 +1,18 @@
-import inquirer from 'inquirer';
+
 import fs from 'fs';
 import path from 'path';
+import { input } from '@inquirer/prompts';
 
 async function promptUser(): Promise<{ moduleName: string; description: string }> {
-  const questions = [
-    {
-      type: 'input',
-      name: 'moduleName',
-      message: '请输入模块名称：',
-      validate: (input: string) => input ? true : '模块名称不能为空',
-    },
-    {
-      type: 'input',
-      name: 'description',
-      message: '请输入模块描述：',
-      validate: (input: string) => input ? true : '模块描述不能为空',
-    },
-  ];
-
-  const answers = await inquirer.prompt(questions);
-  return {
-    moduleName: answers.moduleName,
-    description: answers.description,
-  };
+  const moduleName = await input({
+    message: '请输入模块名称：',
+    validate: (input: string) => input ? true : '模块名称不能为空',
+  });
+  const description = await input({
+    message: '请输入模块描述：',
+    validate: (input: string) => input ? true : '模块描述不能为空',
+  });
+  return { moduleName, description };
 }
 
 function createModuleStructure(moduleName: string, description: string): void {

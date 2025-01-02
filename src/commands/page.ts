@@ -1,28 +1,28 @@
-import inquirer from 'inquirer';
 import fs from 'fs';
 import path from 'path';
+import { input } from '@inquirer/prompts';
 
 async function promptUser(): Promise<{ pageName: string; description: string }> {
-  const questions = [
-    {
-      type: 'input',
-      name: 'pageName',
-      message: '请输入页面名称：',
-      validate: (input: string) => input ? true : '页面名称不能为空',
-    },
-    {
-      type: 'input',
-      name: 'description',
-      message: '请输入页面描述：',
-      validate: (input: string) => input ? true : '页面描述不能为空',
-    },
-  ];
-
-  const answers = await inquirer.prompt(questions);
-  return {
-    pageName: answers.pageName,
-    description: answers.description,
-  };
+  const pageName = await input({
+      message: 'Enter the name of the page:',
+      validate: (input) => {
+        if (!input) {
+          return 'Page name cannot be empty';
+        }
+        return true;
+      },
+    });
+    // description
+    const description = await input({
+      message: 'Enter a description for the page:',
+      validate: (input) => {
+        if (!input) {
+          return 'Description cannot be empty';
+        }
+        return true;
+      },
+    });
+    return { pageName, description };
 }
 
 function createPageStructure(pageName: string, description: string): void {
