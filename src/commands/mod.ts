@@ -1,42 +1,60 @@
-
 import fs from 'fs';
 import path from 'path';
 import { input } from '@inquirer/prompts';
 
+// Template file mapping
+const templates = {
+  'seeders/{name}.ts': 'src/templates/mods/seeders/seeder.ts',
+  'views/{{name}}.vue': 'src/templates/mods/views/page.vue',
+  'models/{{name}}.ts': 'src/templates/mods/models/model.ts',
+  'controllers/{{name}}.ts': 'src/templates/mods/controllers/controller.ts',
+};
+
 async function promptUser(): Promise<{ moduleName: string; description: string }> {
   const moduleName = await input({
-    message: '请输入模块名称：',
-    validate: (input: string) => input ? true : '模块名称不能为空',
+    message: 'Please enter the module name:',
+    validate: (input: string) => (input ? true : 'Module name cannot be empty'),
   });
   const description = await input({
-    message: '请输入模块描述：',
-    validate: (input: string) => input ? true : '模块描述不能为空',
+    message: 'Please enter the module description:',
+    validate: (input: string) => (input ? true : 'Module description cannot be empty'),
   });
   return { moduleName, description };
 }
 
-function createModuleStructure(moduleName: string, description: string): void {
-  const modulePath = path.resolve(process.cwd(), moduleName);
-  const moduleFiles = [
-    { name: 'index.ts', content: `// ${description}\n\nexport function ${moduleName}() {\n  // TODO: Implement ${moduleName} module\n}` },
-    { name: 'README.md', content: `# ${moduleName}\n\n${description}` },
-    { name: 'style.css', content: `/* Styles for ${moduleName} module */` },
-  ];
+function createFileFromTemplate(target: string, template: string, replacements: Record<string, string>): void {
+  const content = fs.readFileSync(template, 'utf-8');
+  const replacedContent = Object.keys(replacements).reduce((acc, key) => {
+    return acc.replace(new RegExp(`{{${key}}}`, 'g'), replacements[key]);
+  }, content);
 
-  if (!fs.existsSync(modulePath)) {
-    fs.mkdirSync(modulePath);
-    console.log(`已创建模块目录：${modulePath}`);
-  } else {
-    console.log(`模块目录已存在：${modulePath}`);
+  const dir = path.dirname(target);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
 
-  moduleFiles.forEach((file) => {
-    const filePath = path.join(modulePath, file.name);
-    if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, file.content);
-      console.log(`已创建文件：${filePath}`);
+  if (!fs.existsSync(target)) {
+    fs.writeFileSync(target, replacedContent);
+    console.log(`File created: ${target}`);
+  } else {
+    console.log(`File already exists: ${target}`);
+  }
+}
+
+function createModuleStructure(moduleName: string, description: string): void {
+  const replacements = {
+    moduleName,
+    description,
+  };
+
+  Object.entries(templates).forEach(([target, template]) => {
+    const targetPath = path.resolve(process.cwd(), target.replace('xxx', moduleName));
+    const templatePath = path.resolve(process.cwd(), template);
+
+    if (fs.existsSync(templatePath)) {
+      createFileFromTemplate(targetPath, templatePath, replacements);
     } else {
-      console.log(`文件已存在：${filePath}`);
+      console.log(`Template file does not exist: ${templatePath}`);
     }
   });
 }

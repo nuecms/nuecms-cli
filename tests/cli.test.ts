@@ -3,11 +3,10 @@ import { exec } from 'child_process';
 
 describe('CLI Tests', () => {
   it('should display help message', (done) => {
-    exec('nuecms-cli --help', (error, stdout, stderr) => {
-      expect(stdout).toContain('Usage: nuecms-cli');
+    exec('nue --help', (error, stdout, stderr) => {
+      expect(stdout).toContain('Usage: nue [options] [command]');
       done();
     });
   });
 
-  // 添加更多测试用例
 });
