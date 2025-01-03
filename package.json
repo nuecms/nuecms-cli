@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "nue": "dist/index.js"
+    "nue": "dist/cli.js"
   },
   "scripts": {
     "build": "vite build",
