@@ -16,7 +16,8 @@ const templates = {
   'server/models/{name}.ts': 'templates/mods/models/model.ts',
   'server/controllers/{Name}.ts': 'templates/mods/controllers/controller.ts',
   'server/controllers/admin/{Name}Controller.ts': 'templates/mods/controllers/controller.ts',
-  'server/controllers/admin/dto/{Name}Dto.ts': 'templates/mods/dot/admin-dto.ts',
+  'server/controllers/admin/dto/{Name}Dto.ts': 'templates/mods/dto/admin-dto.ts',
+  'server/controllers/dto/{Name}Dto.ts': 'templates/mods/dto/admin-dto.ts',
 };
 
 async function promptUser(): Promise<{ moduleName: string; admin: string }> {
