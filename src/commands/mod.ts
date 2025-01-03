@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { input, select } from '@inquirer/prompts';
-import { Module } from 'module';
 
 // Resolve __dirname for ESM
 const __filename = fileURLToPath(import.meta.url);

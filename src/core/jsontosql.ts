@@ -1,4 +1,6 @@
+// Modules
 import * as Utils from '../utils/type';
+
 
 type SQLType = 'BOOLEAN' | 'TEXT' | 'INT' | 'DATE' | 'TIMESTAMP';
 
@@ -19,7 +21,8 @@ interface ProcessOptions {
   tableId?: string;
 }
 
-const types: Record<string, SQLType | string> = {
+// Type Mapping
+const types: { [key: string]: string } = {
   boolean: 'BOOLEAN',
   string: 'TEXT',
   number: 'INT',
@@ -31,14 +34,33 @@ const types: Record<string, SQLType | string> = {
   uuid: 'CHAR(36)', // Added UUID mapping
 };
 
-const lang: Lang = {
-  create: (name: string) => `CREATE TABLE ${name} (`,
-  close: () => ');',
-  id: (name: string, type: string) => `  ${name}_id ${type},`,
-  property: (name: string, type: string) => `  ${name} ${type},`,
-  primary: (id: string) => `  PRIMARY KEY (${id}),`,
-  foreign: (key: string, table: string, refKey: string) => `  FOREIGN KEY (${key}) REFERENCES ${table}(${refKey}),`,
+const lang = {
+  create: function (name: string): string {
+    return `CREATE TABLE ${name} (`;
+  },
+
+  close: function (): string {
+    return ');';
+  },
+
+  id: function (name: string, value: string): string {
+    return `  ${name}_id ${value},`;
+  },
+
+  property: function (name: string, value: string): string {
+    return `  ${name} ${value},`;
+  },
+
+  primary: function (id: string): string {
+    return `  PRIMARY KEY (${id}),`;
+  },
+
+  foreign: function (key1: string, table: string, key2: string): string {
+    return `  FOREIGN KEY (${key1}) REFERENCES ${table}(${key2}),`;
+  },
 };
+
+
 
 // Add a helper function to check UUID format
 function isUUID(value: string): boolean {
@@ -46,74 +68,124 @@ function isUUID(value: string): boolean {
   return typeof value === 'string' && uuidRegex.test(value);
 }
 
-function processObject(obj: Record<string, any>, options: ProcessOptions): string[] {
+function processObject(obj: any, options: ProcessOptions): string[] {
   const { tableName, parentTableName, parentTableId, parentTableIdType, tableId } = options;
+
+  // In-memory storage
   const keys = Object.keys(obj);
   const output: string[] = [];
   const tables: string[] = [];
 
-  let id = tableId || 'id';
-  let idType: keyof typeof types = typeof obj[id] === 'undefined' ? 'string' : (typeof obj[id] as keyof typeof types);
+  // Table variables
+  let id: string | null = null;
+  let idType = 'string';
 
+  // Initialize Table
   output.push(lang.create(tableName));
 
   if (parentTableName) {
     output.push(lang.property(`${parentTableName}_${parentTableId}`, types[parentTableIdType || 'string']));
   }
 
-  for (const key of keys) {
+  if (tableId !== 'undefined' && tableId !== 'null' && obj[tableId]) {
+    id = tableId;
+    idType = typeof obj[tableId];
+  } else {
+    // Obtain ID
+    for (let i = 0; i < keys.length; i++) {
+      if (keys[i].toLowerCase() === 'id' || keys[i].toLowerCase().indexOf('_id') > -1) {
+        id = keys[i];
+        idType = typeof obj[keys[i]];
+        break;
+      }
+    }
+
+    if (!id) {
+      id = 'id';
+      idType = parentTableIdType || idType;
+      output.push(lang.property(id, types[idType]));
+    }
+  }
+
+  // Create table properties
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
     const value = obj[key];
     let type: string;
-
     if (isUUID(value)) {
       type = 'uuid'; // Recognize as UUID type
     } else {
-      type = Utils.isTimestamp(value) ? 'timestamp' : String(value).toLowerCase();
+      type = Utils.isTimestamp(value) ? 'timestamp' : Utils.stringType(value).toLowerCase();
     }
 
+
+    if (type === 'function') {
+      continue;
+    }
+
+    // pojo
     if (type === 'object' && !Array.isArray(value)) {
+      tables.push('');
       tables.push(processObject(value, {
-        tableName: `${tableName}_${key}`,
         parentTableName: tableName,
-        parentTableId: id,
+        parentTableId: id!,
         parentTableIdType: idType,
+        tableName: `${tableName}_${key}`
       }).join('\n'));
-    } else if (Array.isArray(value) && typeof value[0] === 'object') {
-      tables.push(processObject(value[0], {
-        tableName: `${tableName}_${key}`,
-        parentTableName: tableName,
-        parentTableId: id,
-        parentTableIdType: idType,
-      }).join('\n'));
-    } else if (type in types) {
-      output.push(lang.property(key, types[type]));
+      continue;
     }
+
+    // array
+    if (type === 'object' || type === 'array') {
+      if (typeof value[0] === 'object') {
+        tables.push('');
+        tables.push(processObject(value[0], {
+          parentTableName: tableName,
+          parentTableId: id!,
+          parentTableIdType: idType,
+          tableName: `${tableName}_${key}`
+        }).join('\n'));
+        continue;
+      }
+
+      tables.push('');
+      tables.push(processObject({
+        value: typeof value[0]
+      }, {
+        parentTableName: tableName,
+        parentTableId: id!,
+        parentTableIdType: idType,
+        tableName: `${tableName}_${key}`
+      }).join('\n'));
+
+      continue;
+    }
+
+    output.push(lang.property(key, types[type]));
   }
 
-  output.push(lang.primary(id));
+  // Handle table keys
+  output.push(lang.primary(id!));
+
   if (parentTableName) {
-    output.push(lang.foreign(`${parentTableName}_id`, parentTableName, parentTableId || 'id'));
+    output.push(lang.foreign(`${parentTableName}_id`, parentTableName, parentTableId!));
   }
 
-  // Remove trailing comma
-  if (output.length > 0) {
-    output[output.length - 1] = output[output.length - 1].replace(/,$/, '');
-  }
+  output[output.length - 1] = Utils.arrayLastItem(output).substr(0, Utils.arrayLastItem(output).length - 1);
 
   output.push(lang.close());
 
   return output.concat(tables);
 }
 
-export default function Process(
-  tableName: string | Record<string, any>,
-  object?: Record<string, any>,
-  options: Partial<ProcessOptions> = {}
-): string {
+export function toSQL(tableName: string, object: any, options: ProcessOptions): string {
   if (typeof tableName !== 'string') {
     object = tableName;
     tableName = 'generic';
   }
 
-  return processObject(object || {}, { tableName, ...options }).join('\n');
+  return processObject(object, {
+    tableName: tableName,
+    ...options
+  }).join('\n');
 }

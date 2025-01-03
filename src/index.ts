@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import { handleConfCommand } from './commands/conf';
 import { handleModCommand } from './commands/mod';
 import { handlePageCommand } from './commands/page';
+import { handleJsonsqlCommand } from './commands/jsonsql';
 
 const program = new Command();
 
@@ -22,11 +23,23 @@ program
 program
   .command('mod')
   .description('Handle the logic for the mod command')
-  .action(handleModCommand);
+  .action(handleModCommand)
 
 program
   .command('page')
   .description('Handle the logic for the page command')
   .action(handlePageCommand);
+
+
+program
+  .command('jsonsql')
+  .description('Convert JSON file to SQL')
+  .option('-f, --file <file>', 'The JSON file to be converted to SQL')
+  .option('-o, --out <file>', 'The file where the SQL queries will be written')
+  .arguments('<file>')
+  .action((options) => {
+    handleJsonsqlCommand({ ...options, args: program.args });
+  });
+
 
 program.parse(process.argv);

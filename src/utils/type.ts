@@ -23,3 +23,15 @@ export function arrayLastItem<T>(arr: T[]): T | undefined {
 export function isString(value: unknown): value is string {
   return typeof value === 'string' || Object.prototype.toString.call(value) === '[object String]';
 }
+
+export const stringType = (function () {
+  var _toString = ({}).toString;
+  return function (obj: unknown) {
+    if (obj === null || obj === undefined) {
+      return 'null';  // or 'undefined' depending on your needs
+    }
+
+    var stype = _toString.call(obj).slice(8, -1);
+    return stype.toLowerCase();
+  };
+})();
