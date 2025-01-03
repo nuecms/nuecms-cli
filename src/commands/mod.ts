@@ -1,31 +1,37 @@
 import fs from 'fs';
 import path from 'path';
-import { input } from '@inquirer/prompts';
+import { fileURLToPath } from 'url';
+import { input, select } from '@inquirer/prompts';
+
+// Resolve __dirname for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Template file mapping
 const templates = {
-  'seeders/{name}.ts': 'src/templates/mods/seeders/seeder.ts',
-  'views/{{name}}.vue': 'src/templates/mods/views/page.vue',
-  'models/{{name}}.ts': 'src/templates/mods/models/model.ts',
-  'controllers/{{name}}.ts': 'src/templates/mods/controllers/controller.ts',
+  'client/pages/admin/{name}.vue': 'templates/mods/views/admin-page.vue',
+  'client/pages/{name}.vue': 'templates/mods/views/page.vue',
+  'server/seeders/{name}.ts': 'templates/mods/seeders/seeder.ts',
+  'server/models/{name}.ts': 'templates/mods/models/model.ts',
+  'server/controllers/{name}.ts': 'templates/mods/controllers/controller.ts',
 };
 
-async function promptUser(): Promise<{ moduleName: string; description: string }> {
+async function promptUser(): Promise<{ moduleName: string; admin: string }> {
   const moduleName = await input({
     message: 'Please enter the module name:',
     validate: (input: string) => (input ? true : 'Module name cannot be empty'),
   });
-  const description = await input({
-    message: 'Please enter the module description:',
-    validate: (input: string) => (input ? true : 'Module description cannot be empty'),
-  });
-  return { moduleName, description };
+  const admin = await select({
+    message: 'Is this an admin module?',
+    choices: ['Yes', 'No'],
+  }) as string;
+  return { moduleName, admin };
 }
 
 function createFileFromTemplate(target: string, template: string, replacements: Record<string, string>): void {
   const content = fs.readFileSync(template, 'utf-8');
   const replacedContent = Object.keys(replacements).reduce((acc, key) => {
-    return acc.replace(new RegExp(`{{${key}}}`, 'g'), replacements[key]);
+    return acc.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), replacements[key]); // Match {{key}}
   }, content);
 
   const dir = path.dirname(target);
@@ -41,16 +47,28 @@ function createFileFromTemplate(target: string, template: string, replacements: 
   }
 }
 
-function createModuleStructure(moduleName: string, description: string): void {
+export function createModuleStructure(moduleName: string, admin: string): void {
   const replacements = {
-    moduleName,
-    description,
+    moduleName: moduleName,
   };
 
-  Object.entries(templates).forEach(([target, template]) => {
-    const targetPath = path.resolve(process.cwd(), target.replace('xxx', moduleName));
-    const templatePath = path.resolve(process.cwd(), template);
+  const isAdmin = admin === 'Yes';
 
+  Object.entries(templates).forEach(([target, template]) => {
+    // Skip admin files if module is not admin
+    if (target.includes('admin') && !isAdmin) {
+      return
+    }
+    const targetPath = path.resolve(
+      process.cwd(),
+      target.replace('{name}', moduleName) // Replace placeholder
+    );
+
+    let templatePath = path.resolve(__dirname, template);
+    // Adjust template path resolution for production and development
+    if (__dirname.includes('dist')) {
+      templatePath = path.resolve(__dirname.replace('dist', 'src'), template);
+    }
     if (fs.existsSync(templatePath)) {
       createFileFromTemplate(targetPath, templatePath, replacements);
     } else {
@@ -60,6 +78,6 @@ function createModuleStructure(moduleName: string, description: string): void {
 }
 
 export async function handleModCommand(): Promise<void> {
-  const { moduleName, description } = await promptUser();
-  createModuleStructure(moduleName, description);
+  const { moduleName, admin } = await promptUser();
+  createModuleStructure(moduleName, admin);
 }

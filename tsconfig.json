@@ -13,5 +13,5 @@
     "sourceMap": true                     // 生成源映射文件
   },
   "include": ["src/**/*.ts"],             // 包含的文件
-  "exclude": ["node_modules", "dist"]     // 排除的文件
+  "exclude": ["node_modules", "dist", "src/templates"]     // 排除的文件
 }
