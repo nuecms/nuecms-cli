@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { input, select } from '@inquirer/prompts';
+import { Module } from 'module';
 
 // Resolve __dirname for ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -13,7 +14,9 @@ const templates = {
   'client/pages/{name}.vue': 'templates/mods/views/page.vue',
   'server/seeders/{name}.ts': 'templates/mods/seeders/seeder.ts',
   'server/models/{name}.ts': 'templates/mods/models/model.ts',
-  'server/controllers/{name}.ts': 'templates/mods/controllers/controller.ts',
+  'server/controllers/{Name}.ts': 'templates/mods/controllers/controller.ts',
+  'server/controllers/admin/{Name}Controller.ts': 'templates/mods/controllers/controller.ts',
+  'server/controllers/admin/dto/{Name}Dto.ts': 'templates/mods/dot/admin-dto.ts',
 };
 
 async function promptUser(): Promise<{ moduleName: string; admin: string }> {
@@ -48,8 +51,10 @@ function createFileFromTemplate(target: string, template: string, replacements: 
 }
 
 export function createModuleStructure(moduleName: string, admin: string): void {
+  const caseName = moduleName.charAt(0).toUpperCase() + moduleName.slice(1);
   const replacements = {
     moduleName: moduleName,
+    ModuleName: caseName
   };
 
   const isAdmin = admin === 'Yes';
@@ -61,7 +66,7 @@ export function createModuleStructure(moduleName: string, admin: string): void {
     }
     const targetPath = path.resolve(
       process.cwd(),
-      target.replace('{name}', moduleName) // Replace placeholder
+      target.replace('{name}', moduleName).replace('{Name}', caseName)
     );
 
     let templatePath = path.resolve(__dirname, template);
