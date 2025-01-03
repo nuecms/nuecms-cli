@@ -9,7 +9,9 @@ const program = new Command();
 
 program
   .name('nue')
-  .description('NueCMS CLI tools')
+  .description(`NueCMS CLI tools
+    For more information, visit https://tools.w3cub.com
+  `)
   .version('0.1.0');
 
 program
