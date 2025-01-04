@@ -2,6 +2,11 @@ import path from 'path';
 import { SequelizeAuto, } from '../core/generator/auto';
 import { AutoOptions } from '../core/generator/types';
 import { loadConfig } from '../config/loadConfig';
+import { createResolver } from '../utils/resolve';
+
+const { resolve } = createResolver(import.meta.url);
+
+
 
 /**
  * Command-line options for the `auto` command.
@@ -46,14 +51,20 @@ export async function handleAutoCommand(options: AutoCommandOptions): Promise<vo
       singularize: true,
       useDefine: false,
     };
-
+    const defaultTemplate = 'templates/auto/model.ts'
     const config = await loadConfig();
-
     autoOptions.host = autoOptions.host || config?.auto?.host;
     autoOptions.port = autoOptions.port || config?.auto?.port;
     autoOptions.database = autoOptions.database || config?.auto?.database;
     autoOptions.username = user || config?.auto?.username;
     autoOptions.password = password || config?.auto?.password;
+    autoOptions.template = autoOptions.template || config?.auto?.template;
+    if (!autoOptions.template) {
+      let templatePath = resolve(defaultTemplate);
+      autoOptions.template = templatePath;
+    }
+    // lock down the dialect to MySQL
+    autoOptions.dialect = 'mysql'; // Default dialect is MySQL
 
     if (autoOptions.directory) {
       autoOptions.directory = path.resolve(autoOptions.directory);

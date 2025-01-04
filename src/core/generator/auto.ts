@@ -11,6 +11,7 @@ export class SequelizeAuto {
   sequelize: Sequelize;
   options: AutoOptions;
   constructor(database: string | Sequelize, username: string, password: string, options: AutoOptions) {
+
     if (options && options.dialect === 'sqlite' && !options.storage && database) {
       options.storage = database as string;
     }

@@ -1,11 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { input, select } from '@inquirer/prompts';
-
-// Resolve __dirname for ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { createResolver } from '../utils/resolve';
+const { resolve } = createResolver(import.meta.url);
 
 // Template file mapping
 const templates = {
@@ -69,11 +66,7 @@ export function createModuleStructure(moduleName: string, admin: string): void {
       target.replace('{name}', moduleName).replace('{Name}', caseName)
     );
 
-    let templatePath = path.resolve(__dirname, template);
-    // Adjust template path resolution for production and development
-    if (__dirname.includes('dist')) {
-      templatePath = path.resolve(__dirname.replace('dist', 'src'), template);
-    }
+    let templatePath = resolve(template);
     if (fs.existsSync(templatePath)) {
       createFileFromTemplate(targetPath, templatePath, replacements);
     } else {

@@ -14,7 +14,8 @@ interface AutoConfig {
   username: string;
   password: string;
   database: string;
-  directory: string;
+  directory?: string;
+  template?: string;
 }
 
 export interface UserConfig {
