@@ -25,7 +25,7 @@ export class AutoGenerator {
     singularize: boolean;
     useDefine: boolean;
     noIndexes?: boolean;
-    template?: string; // add: support for custom templates
+    template?: string | false; // add: support for custom templates
   };
 
   constructor(tableData: TableData, dialect: DialectOptions, options: AutoOptions) {

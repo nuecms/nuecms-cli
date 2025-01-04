@@ -5,6 +5,7 @@ import { handleConfCommand } from './commands/conf';
 import { handleModCommand } from './commands/mod';
 import { handlePageCommand } from './commands/page';
 import { handleJsonsqlCommand } from './commands/jsonsql';
+import { handleAutoCommand } from './commands/auto';
 
 const program = new Command();
 
@@ -51,9 +52,9 @@ program.
   .option('-u, --user <user>', 'The database user')
   .option('-p, --port <port>', 'The database port')
   .option('-x, --password <password>', 'The database password')
-  .option('--dialect <dialect>', 'The database dialect')
+  .option('-z, --template <template>', 'The template to use for the generated models')
   .action((options) => {
-    console.log('auto', options);
+    handleAutoCommand(options);
   });
 
 

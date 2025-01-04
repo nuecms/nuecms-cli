@@ -7,13 +7,14 @@ interface Prompt {
 }
 
 
-interface DatabaseConfig {
+interface AutoConfig {
   dialect: string;
   host: string;
   port: number;
   username: string;
   password: string;
   database: string;
+  directory: string;
 }
 
 export interface UserConfig {
@@ -25,7 +26,7 @@ export interface UserConfig {
       [key: string]: Array<Prompt>
     };
   };
-  database?: DatabaseConfig;
+  auto?: AutoConfig;
 }
 
 export function defineConfig(config: UserConfig): UserConfig {
