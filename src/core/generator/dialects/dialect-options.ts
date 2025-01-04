@@ -4,7 +4,7 @@ import { Utils } from "sequelize";
 export interface DialectOptions {
   name: string;
   hasSchema: boolean;
-  
+
   getForeignKeysQuery: (tableName: string, schemaName: string) => string;
   remapForeignKeysRow?: (tableName: string, row: FKRow) => FKRelation;
   countTriggerQuery: (tableName: string, schemaName: string) => string;
