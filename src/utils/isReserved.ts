@@ -1,19 +1,6 @@
 type KeywordsHash = Record<string, boolean>;
 
 /**
- * ECMAScript dialects.
- */
-const DIALECTS = {
-    es3: 3,
-    es5: 5,
-    es2015: 6,
-    es7: 7,
-    es6: 6,
-    'default': 5,
-    next: 6
-} as const;
-
-/**
  * ECMAScript reserved words.
  */
 const KEYWORDS: Record<string, KeywordsHash> = {};
@@ -46,22 +33,6 @@ KEYWORDS['6-strict'] = _hash(
     KEYWORDS['6'],
     'let static implements package protected interface private public'
 );
-
-/**
- * Check if a word is a reserved keyword.
- *
- * @param {string} word - The word to check.
- * @param {string | number} [dialect] - Dialect or version.
- * @param {boolean} [strict] - Strict mode.
- * @returns {boolean} - True if the word is reserved, false otherwise.
- */
-function check(word: string, dialect: string | number = DIALECTS.default, strict: boolean = false): boolean {
-    let version = DIALECTS[dialect as keyof typeof DIALECTS] || dialect;
-    if (strict && version >= 5) version += '-strict';
-    if (!KEYWORDS[version]) throw new Error('Unknown dialect');
-    return KEYWORDS[version].hasOwnProperty(word);
-}
-
 
 
 /**

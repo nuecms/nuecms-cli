@@ -6,17 +6,28 @@ interface Prompt {
   choices?: Array<string>;
 }
 
-export interface Config {
+
+interface DatabaseConfig {
+  dialect: string;
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  database: string;
+}
+
+export interface UserConfig {
   cli: {
     page: {
       [key: string]: string
     };
-    prompt: {
+    prompt?: {
       [key: string]: Array<Prompt>
     };
   };
+  database?: DatabaseConfig;
 }
 
-export function defineConfig(config: Config): Config {
+export function defineConfig(config: UserConfig): UserConfig {
   return config;
 }

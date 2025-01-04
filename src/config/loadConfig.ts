@@ -1,12 +1,12 @@
 import path from 'path';
 import { existsSync } from 'fs';
 import { loadConfigFromFile } from 'vite';
-import { Config } from './defineConfig';
+import { UserConfig } from './defineConfig';
 
 
 const DEFAULT_CONFIG_PATH = 'nue.config.ts';
 
-export async function loadConfig(configPath: string = DEFAULT_CONFIG_PATH): Promise<Config | null> {
+export async function loadConfig(configPath: string = DEFAULT_CONFIG_PATH): Promise<UserConfig | null> {
   const resolvedPath = path.resolve(process.cwd(), configPath);
 
   if (!existsSync(resolvedPath)) {
@@ -20,5 +20,5 @@ export async function loadConfig(configPath: string = DEFAULT_CONFIG_PATH): Prom
     throw new Error(`Failed to load configuration from ${resolvedPath}`);
   }
 
-  return result.config as Config;
+  return result.config as UserConfig;
 }

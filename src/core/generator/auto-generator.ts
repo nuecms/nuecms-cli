@@ -25,6 +25,7 @@ export class AutoGenerator {
     singularize: boolean;
     useDefine: boolean;
     noIndexes?: boolean;
+    template?: string; // add: support for custom templates
   };
 
   constructor(tableData: TableData, dialect: DialectOptions, options: AutoOptions) {
@@ -38,6 +39,93 @@ export class AutoGenerator {
     this.options.lang = this.options.lang || 'es5';
     this.space = makeIndent(this.options.spaces, this.options.indentation);
   }
+
+   /**
+   * 加载自定义模板
+   */
+   private loadTemplate(): _.TemplateExecutor {
+    const templatePath = this.options.template; // 从配置中获取模板路径
+    if (!templatePath) {
+      throw new Error("Custom template path is required.");
+    }
+
+    const fs = require("fs");
+    const templateContent = fs.readFileSync(templatePath, "utf-8");
+    return _.template(templateContent); // use lodash template
+  }
+  generateText() {
+    if (this.options.template) {
+      return this.generateTextByTemplate();
+    } else {
+      return this.generateTextOld();
+    }
+  }
+  /**
+   * 生成模型文件内容
+   */
+  generateTextByTemplate() {
+    const tableNames = _.keys(this.tables);
+    const template = this.loadTemplate(); // 加载自定义模板
+
+    const text: { [name: string]: string; } = {};
+    tableNames.forEach(table => {
+      const [schemaName, tableNameOrig] = qNameSplit(table);
+      const tableName = makeTableName(this.options.caseModel, tableNameOrig, this.options.singularize, this.options.lang);
+
+      // 准备模板数据
+      const templateData = {
+        tableName,
+        schemaName,
+        fields: this.getFieldsForTemplate(table),
+        indexes: this.getIndexesForTemplate(table),
+        options: this.options,
+      };
+
+      // 使用模板生成内容
+      text[table] = template(templateData);
+    });
+
+    return text;
+  }
+
+
+
+  /**
+   * 获取字段数据，用于模板渲染
+   */
+  private getFieldsForTemplate(table: string): any[] {
+    const fields = _.keys(this.tables[table]);
+    return fields.map(field => {
+      const fieldObj = this.tables[table][field];
+      return {
+        name: recase(this.options.caseProp, field),
+        type: this.getSqType(fieldObj, "type"),
+        allowNull: fieldObj.allowNull,
+        primaryKey: fieldObj.primaryKey,
+        autoIncrement: fieldObj.autoIncrement,
+        defaultValue: fieldObj.defaultValue,
+        comment: fieldObj.comment,
+      };
+    });
+  }
+
+  /**
+   * 获取索引数据，用于模板渲染
+   */
+  private getIndexesForTemplate(table: string): any[] {
+    const indexes = this.indexes[table];
+    if (!indexes) return [];
+
+    return indexes.map(idx => ({
+      name: idx.name,
+      unique: idx.unique,
+      fields: idx.fields.map(ff => ({
+        attribute: ff.attribute,
+      })),
+    }));
+  }
+
+
 
   makeHeaderTemplate() {
     let header = "";
@@ -76,7 +164,7 @@ export class AutoGenerator {
     return header;
   }
 
-  generateText() {
+  generateTextOld() {
     const tableNames = _.keys(this.tables);
 
     const header = this.makeHeaderTemplate();
