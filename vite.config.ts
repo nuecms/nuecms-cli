@@ -21,7 +21,7 @@ export default defineConfig({
       external: [
         'fs', 'path', 'url',
         'commander', '@inquirer/prompts',
-        'mysql2/promise', 'dotenv', 'vite'
+        'mysql2/promise', 'dotenv', 'vite', 'sequelize', 'lodash'
       ],
       output: {
         dir: 'dist',

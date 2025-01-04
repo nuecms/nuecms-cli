@@ -39,6 +39,7 @@
   },
   "homepage": "https://github.com/nuecms/nuecms-cli#readme",
   "devDependencies": {
+    "@types/lodash": "^4.17.14",
     "@types/node": "^18.0.0",
     "eslint": "^9.16.0",
     "eslint-config-prettier": "^9.1.0",
@@ -57,7 +58,11 @@
     "@inquirer/prompts": "^7.2.1",
     "commander": "^13.0.0",
     "dotenv": "^16.4.7",
+    "lodash": "^4.17.21",
     "mysql2": "^3.2.0"
+  },
+  "peerDependencies": {
+    "sequelize": "^6.37.5"
   },
   "engines": {
     "node": ">=18.0.0"

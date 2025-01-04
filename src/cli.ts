@@ -41,5 +41,21 @@ program
     handleJsonsqlCommand({ ...options, args: program.args });
   });
 
+program.
+  command('auto')
+  .description('sequelize auto like command')
+  .option('-o, --out <file>', 'The output directory for the model files')
+  .option('-d, --database <database>', 'The database name')
+  .option('-t, --tables <tables...>', 'The tables to generate models for')
+  .option('-h, --host <host>', 'The database host')
+  .option('-u, --user <user>', 'The database user')
+  .option('-p, --port <port>', 'The database port')
+  .option('-x, --password <password>', 'The database password')
+  .option('--dialect <dialect>', 'The database dialect')
+  .action((options) => {
+    console.log('auto', options);
+  });
+
+
 
 program.parse(process.argv);
