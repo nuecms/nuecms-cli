@@ -1,17 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ES2021",                   // 指定 ECMAScript 目标版本
-    "module": "ESNext",                   // 使用 ES 模块系统
-    "moduleResolution": "node",           // 模块解析策略
-    "esModuleInterop": true,              // 启用 ES 模块互操作性
-    "forceConsistentCasingInFileNames": true, // 强制文件名大小写一致
-    "strict": true,                       // 启用所有严格类型检查选项
-    "skipLibCheck": true,                 // 跳过库文件的类型检查
-    "outDir": "./dist",                   // 输出目录
-    "rootDir": "./src",                   // 源文件根目录
-    "declaration": true,                  // 生成声明文件
-    "sourceMap": true                     // 生成源映射文件
+    "target": "ES2021",                   // Specify ECMAScript target version
+    "module": "ESNext",                   // Use ES module system
+    "moduleResolution": "node",           // Specify module resolution strategy
+    "esModuleInterop": true,              // Enable interoperability between CommonJS and ES Modules
+    "forceConsistentCasingInFileNames": true, // Enforce consistent casing in file names
+    "strict": true,                       // Enable all strict type-checking options
+    "skipLibCheck": true,                 // Skip type checking of declaration files
+    "outDir": "./dist",                   // Output directory
+    "rootDir": "./src",                   // Root directory of source files
+    "declaration": true,                  // Generate declaration files
+    "sourceMap": true                     // Generate source map files
   },
-  "include": ["src/**/*.ts"],             // 包含的文件
-  "exclude": ["node_modules", "dist", "src/templates"]     // 排除的文件
+  "include": ["src"],                   // Included files and directories
+  "exclude": ["node_modules", "dist", "src/templates"]  // Exclude files and directories
 }

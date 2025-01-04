@@ -7,23 +7,26 @@ export default defineConfig({
   plugins: [tsconfigPaths(), dts()],
   build: {
     target: 'node18',
+    minify: false,
     lib: {
-      entry: path.resolve(__dirname, 'src/index.ts'),
+      entry: {
+        index: './src/index.ts',
+        cli: './src/cli.ts'
+      },
       name: 'NueCMSCLI',
       formats: ['es'],
-      fileName: 'index'
+      fileName: (format, entryName) => `${entryName}.js`,
     },
     rollupOptions: {
       external: [
         'fs', 'path', 'url',
-        'commander', '@inquirer/prompts', 'mysql2/promise', 'dotenv'],
+        'commander', '@inquirer/prompts',
+        'mysql2/promise', 'dotenv', 'vite'
+      ],
       output: {
-        globals: {
-          commander: 'commander',
-          '@inquirer/prompts': '@inquirer/prompts',
-          'mysql2/promise': 'mysql2/promise',
-          'dotenv': 'dotenv',
-        }
+        dir: 'dist',
+        entryFileNames: '[name].js',
+        format: 'es'
       }
     },
     sourcemap: false,

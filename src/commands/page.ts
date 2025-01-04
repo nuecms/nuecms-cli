@@ -1,57 +1,90 @@
 import fs from 'fs';
 import path from 'path';
-import { input } from '@inquirer/prompts';
+import { input, select } from '@inquirer/prompts';
+import { loadConfig } from '../config/loadConfig';
 
-async function promptUser(): Promise<{ pageName: string; description: string }> {
+type PageConf = {
+  pageName: string;
+  targetPath: string;
+};
+
+async function promptUser(config: any): Promise<PageConf> {
   const pageName = await input({
-      message: 'Enter the name of the page:',
-      validate: (input) => {
-        if (!input) {
-          return 'Page name cannot be empty';
-        }
-        return true;
-      },
-    });
-    // description
-    const description = await input({
-      message: 'Enter a description for the page:',
-      validate: (input) => {
-        if (!input) {
-          return 'Description cannot be empty';
-        }
-        return true;
-      },
-    });
-    return { pageName, description };
+    message: 'Enter the name of the template:',
+    validate: (input) => {
+      if (!input) {
+        return 'Page name cannot be empty';
+      }
+      return true;
+    },
+  });
+  const targetPath = await input({
+    message: 'Enter the path of the page:',
+    validate: (input) => {
+      if (!input) {
+        return 'Page path cannot be empty';
+      }
+      return true;
+    },
+  });
+
+  const customPrompts = config.cli.prompt[pageName]
+    ? config.cli.prompt[pageName]
+    : [];
+  const customObj = {} as Record<string, string>;
+  for (const prompt of customPrompts) {
+    if (prompt.type === 'input') {
+      const response = await input({
+        message: prompt.message,
+        validate: (input) => {
+          if (!input) {
+            return 'Response cannot be empty';
+          }
+          return true;
+        },
+      });
+      customObj[prompt.name] = response as string;
+    } else if (prompt.type === 'select') {
+      const response = await select({
+        message: prompt.message,
+        choices: prompt.choices,
+      });
+      customObj[prompt.name] = response as string;
+    }
+  }
+  return { pageName, targetPath, ...customObj };
 }
 
-function createPageStructure(pageName: string, description: string): void {
-  const pagePath = path.resolve(process.cwd(), pageName);
-  const pageFiles = [
-    { name: 'index.ts', content: `// ${description}\n\nexport function ${pageName}() {\n  // TODO: Implement ${pageName} page\n}` },
-    { name: 'README.md', content: `# ${pageName}\n\n${description}` },
-    { name: 'style.css', content: `/* Styles for ${pageName} page */` },
-  ];
+async function createPageStructure(options: PageConf, config: any): Promise<void> {
+  const { pageName, targetPath } = options;
+
+  // config?.cli.page is an object with keys as key and values as file path
+  const name = config?.cli.page[pageName];
+  if (!name) {
+    throw new Error(`Page name "${pageName}" is not defined in the nue.config.ts configuration.`);
+  }
+  const templatePath = path.resolve(process.cwd(), name);
+  const content = fs.readFileSync(templatePath, 'utf-8');
+  const filePath = path.resolve(process.cwd(), targetPath);
+  const pagePath = path.dirname(filePath);
 
   if (!fs.existsSync(pagePath)) {
     fs.mkdirSync(pagePath);
-    console.log(`已创建页面目录：${pagePath}`);
+    console.log(`Page directory created: ${pagePath}`);
   } else {
-    console.log(`页面目录已存在：${pagePath}`);
+    console.log(`Page directory already exists: ${pagePath}`);
   }
 
-  pageFiles.forEach((file) => {
-    const filePath = path.join(pagePath, file.name);
-    if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, file.content);
-      console.log(`已创建文件：${filePath}`);
-    } else {
-      console.log(`文件已存在：${filePath}`);
-    }
-  });
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, content);
+    console.log(`File created: ${filePath}`);
+  } else {
+    console.log(`File already exists: ${filePath}`);
+  }
 }
 
 export async function handlePageCommand(): Promise<void> {
-  const { pageName, description } = await promptUser();
-  createPageStructure(pageName, description);
+  const config = await loadConfig();
+  const conf = await promptUser(config);
+  createPageStructure(conf, config);
 }
