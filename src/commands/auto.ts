@@ -6,8 +6,6 @@ import { createResolver } from '../utils/resolve';
 
 const { resolve } = createResolver(import.meta.url);
 
-
-
 /**
  * Command-line options for the `auto` command.
  */
@@ -59,7 +57,7 @@ export async function handleAutoCommand(options: AutoCommandOptions): Promise<vo
     autoOptions.username = user || config?.auto?.username;
     autoOptions.password = password || config?.auto?.password;
     autoOptions.template = autoOptions.template || config?.auto?.template;
-    if (!autoOptions.template) {
+    if (!autoOptions.template && typeof autoOptions.template !== 'boolean') {
       let templatePath = resolve(defaultTemplate);
       autoOptions.template = templatePath;
     }
