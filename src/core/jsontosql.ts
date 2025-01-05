@@ -14,7 +14,7 @@ interface Lang {
 }
 
 interface ProcessOptions {
-  tableName: string;
+  tableName?: string;
   parentTableName?: string;
   parentTableId?: string;
   parentTableIdType?: keyof typeof types;
@@ -81,13 +81,13 @@ function processObject(obj: any, options: ProcessOptions): string[] {
   let idType = 'string';
 
   // Initialize Table
-  output.push(lang.create(tableName));
+  output.push(lang.create(tableName as string));
 
   if (parentTableName) {
     output.push(lang.property(`${parentTableName}_${parentTableId}`, types[parentTableIdType || 'string']));
   }
 
-  if (tableId !== 'undefined' && tableId !== 'null' && obj[tableId]) {
+  if (tableId && obj[tableId]) {
     id = tableId;
     idType = typeof obj[tableId];
   } else {
@@ -102,7 +102,7 @@ function processObject(obj: any, options: ProcessOptions): string[] {
 
     if (!id) {
       id = 'id';
-      idType = parentTableIdType || idType;
+      idType = parentTableIdType ? String(parentTableIdType) : idType;
       output.push(lang.property(id, types[idType]));
     }
   }
@@ -171,7 +171,7 @@ function processObject(obj: any, options: ProcessOptions): string[] {
     output.push(lang.foreign(`${parentTableName}_id`, parentTableName, parentTableId!));
   }
 
-  output[output.length - 1] = Utils.arrayLastItem(output).substr(0, Utils.arrayLastItem(output).length - 1);
+  output[output.length - 1] = Utils.arrayLastItem<any>(output).substr(0, Utils.arrayLastItem<any>(output).length - 1);
 
   output.push(lang.close());
 
