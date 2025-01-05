@@ -2,6 +2,7 @@ import _ from "lodash";
 import { ColumnDescription } from "sequelize/types";
 import { DialectOptions, FKSpec } from "./dialects/dialect-options";
 import { AutoOptions, CaseFileOption, CaseOption, Field, IndexSpec, LangOption, makeIndent, makeTableName, pluralize, qNameJoin, qNameSplit, recase, Relation, singularize, TableData, TSField } from "./types";
+import fs from "fs";
 
 /** Generates text from each table in TableData */
 export class AutoGenerator {
@@ -48,8 +49,6 @@ export class AutoGenerator {
     if (!templatePath) {
       throw new Error("Custom template path is required.");
     }
-
-    const fs = require("fs");
     const templateContent = fs.readFileSync(templatePath, "utf-8");
     return _.template(templateContent); // use lodash template
   }

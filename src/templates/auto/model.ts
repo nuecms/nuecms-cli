@@ -1,27 +1,33 @@
 /* jshint indent: 2 */
-export default function (sequelize: any, DataTypes: any) {
+import { Sequelize, DataTypes as SequelizeDataTypes } from 'sequelize';
+
+export default function (sequelize: Sequelize, DataTypes: typeof SequelizeDataTypes) {
   const table = sequelize.define(
     '<%= tableName %>',
     {
       <% _.forEach(fields, function(field) { %>
       <%= field.name %>: {
-        type: DataTypes.<%= field.type %>,
-        <% if (field.allowNull) { %>allowNull: true,<% } else { %>allowNull: false,<% } %>
+        type: <%= field.type %>,
+        allowNull: <%= field.allowNull ? 'true' : 'false' %>,
         <% if (field.primaryKey) { %>primaryKey: true,<% } %>
         <% if (field.autoIncrement) { %>autoIncrement: true,<% } %>
-        <% if (field.defaultValue) { %>defaultValue: <%= field.defaultValue %>,<% } %>
+        <% if (field.defaultValue) { %>
+        defaultValue: <% if (typeof field.defaultValue === 'string') { %>'<%= field.defaultValue %>'<% } else { %><%= field.defaultValue %><% } %>,
+        <% } %>
         <% if (field.comment) { %>comment: '<%= field.comment %>',<% } %>
       },
       <% }); %>
     },
     {
+      tableName: '<%= tableName %>',
+      timestamps: true,
       <% if (indexes.length > 0) { %>
       indexes: [
         <% _.forEach(indexes, function(index) { %>
         {
           fields: [
             <% _.forEach(index.fields, function(field) { %>
-            { attribute: '<%= field.attribute %>' },
+            { name: '<%= field.attribute %>' },
             <% }); %>
           ],
           name: '<%= index.name %>',
@@ -32,6 +38,5 @@ export default function (sequelize: any, DataTypes: any) {
       <% } %>
     }
   );
-  // table.sync({ force: true });
   return table;
 }

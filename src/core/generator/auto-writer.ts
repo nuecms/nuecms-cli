@@ -4,6 +4,8 @@ import path from "path";
 import util from "util";
 import { FKSpec } from "./dialects/dialect-options";
 import { AutoOptions, TableData, CaseFileOption, CaseOption, LangOption, makeIndent, makeTableName, pluralize, qNameSplit, recase, Relation } from "./types";
+import prettier from "prettier";
+import { loadConfig } from '../../config/loadConfig';
 
 /** Writes text into files from TableData.text, and writes init-models */
 export class AutoWriter {
@@ -25,6 +27,7 @@ export class AutoWriter {
     spaces?: boolean;
     indentation?: number;
   };
+  prettierConfig: prettier.Options | undefined;
   constructor(tableData: TableData, options: AutoOptions) {
     this.tableText = tableData.text as { [name: string]: string };
     this.foreignKeys = tableData.foreignKeys;
@@ -33,11 +36,14 @@ export class AutoWriter {
     this.space = makeIndent(this.options.spaces, this.options.indentation);
   }
 
-  write() {
-
+  async write() {
     if (this.options.noWrite) {
       return Promise.resolve();
     }
+
+    const nueConfig  = await loadConfig();
+    this.prettierConfig = nueConfig?.prettier;
+
 
     fs.mkdirSync(path.resolve(this.options.directory || "./models"), { recursive: true });
 
@@ -81,16 +87,26 @@ export class AutoWriter {
         return this.createES5InitString(tableNames, assoc, "var");
     }
   }
-  private createFile(table: string) {
+  private async createFile(table: string) {
     // FIXME: schema is not used to write the file name and there could be collisions. For now it
     // is up to the developer to pick the right schema, and potentially chose different output
     // folders for each different schema.
     const [schemaName, tableName] = qNameSplit(table);
     const fileName = recase(this.options.caseFile, tableName, this.options.singularize);
     const filePath = path.join(this.options.directory, fileName + (this.options.lang === 'ts' ? '.ts' : '.js'));
-
     const writeFile = util.promisify(fs.writeFile);
-    return writeFile(path.resolve(filePath), this.tableText[table]);
+    const prettierOptions: prettier.Options = _.merge({}, {
+      printWidth: 180,
+      semi: false,
+      singleQuote: true,
+      bracketSpacing: true,
+      trailingComma: 'none',
+      tabWidth: 2,
+      endOfLine: 'lf',
+      parser: this.options.lang === 'ts' ? 'typescript' : 'babel'
+    }, this.prettierConfig)
+    const formattedContent = await prettier.format(this.tableText[table], prettierOptions);
+    return writeFile(path.resolve(filePath), formattedContent);
   }
 
   /** Create the belongsToMany/belongsTo/hasMany/hasOne association strings */

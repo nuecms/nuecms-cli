@@ -66,6 +66,8 @@ export async function handleAutoCommand(options: AutoCommandOptions): Promise<vo
     // lock down the dialect to MySQL
     autoOptions.dialect = 'mysql'; // Default dialect is MySQL
 
+    autoOptions.lang = 'ts'; // Default language is TypeScript
+
     if (autoOptions.directory) {
       autoOptions.directory = path.resolve(autoOptions.directory);
     } else {
@@ -99,6 +101,7 @@ export async function handleAutoCommand(options: AutoCommandOptions): Promise<vo
     await auto.run();
     console.log(`Models successfully generated in: ${out}`);
   } catch (error: any) {
+    console.log(error);
     console.error('Error generating models:', error.message);
   }
 }

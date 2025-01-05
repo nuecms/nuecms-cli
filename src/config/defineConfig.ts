@@ -1,3 +1,4 @@
+import prettier from "prettier";
 
 interface Prompt {
   type: string;
@@ -16,6 +17,7 @@ interface AutoConfig {
   database: string;
   directory?: string;
   template?: string;
+  prefix?: string;
 }
 
 export interface UserConfig {
@@ -28,6 +30,7 @@ export interface UserConfig {
     };
   };
   auto?: AutoConfig;
+  prettier?: prettier.Options;
 }
 
 export function defineConfig(config: UserConfig): UserConfig {

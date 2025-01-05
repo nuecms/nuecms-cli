@@ -19,8 +19,8 @@ export default defineConfig({
     },
     rollupOptions: {
       external: [
-        'fs', 'path', 'url',
-        'commander', '@inquirer/prompts',
+        'fs', 'path', 'url', 'util',
+        'commander', '@inquirer/prompts', 'prettier',
         'mysql2/promise', 'dotenv', 'vite', 'sequelize', 'lodash'
       ],
       output: {
