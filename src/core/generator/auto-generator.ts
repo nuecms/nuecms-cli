@@ -27,6 +27,7 @@ export class AutoGenerator {
     useDefine: boolean;
     noIndexes?: boolean;
     template?: string | false; // add: support for custom templates
+    prefix?: string;
   };
 
   constructor(tableData: TableData, dialect: DialectOptions, options: AutoOptions) {
@@ -56,7 +57,7 @@ export class AutoGenerator {
     if (this.options.template) {
       return this.generateTextByTemplate();
     } else {
-      return this.generateTextOld();
+      return this.generateTextOrigin();
     }
   }
   /**
@@ -70,9 +71,11 @@ export class AutoGenerator {
     tableNames.forEach(table => {
       const [schemaName, tableNameOrig] = qNameSplit(table);
       const tableName = makeTableName(this.options.caseModel, tableNameOrig, this.options.singularize, this.options.lang);
+      const useName = tableName.replace(this.options.prefix as string, '');
 
       // 准备模板数据
       const templateData = {
+        useName,
         tableName,
         schemaName,
         fields: this.getFieldsForTemplate(table),
@@ -98,7 +101,7 @@ export class AutoGenerator {
       const fieldObj = this.tables[table][field];
       return {
         name: recase(this.options.caseProp, field),
-        type: this.getSqType(fieldObj, "type"),
+        type: this.getSqType(fieldObj as Field, "type"),
         allowNull: fieldObj.allowNull,
         primaryKey: fieldObj.primaryKey,
         autoIncrement: fieldObj.autoIncrement,
@@ -132,7 +135,7 @@ export class AutoGenerator {
 
     if (this.options.lang === 'ts') {
       header += "import * as Sequelize from 'sequelize';\n";
-      header += "import { DataTypes, Model, Optional } from 'sequelize';\n";
+      header += "import { DataTypes, Model, type Optional } from 'sequelize';\n";
     } else if (this.options.lang === 'es6') {
       header += "const Sequelize = require('sequelize');\n";
       header += "module.exports = (sequelize, DataTypes) => {\n";
@@ -163,7 +166,7 @@ export class AutoGenerator {
     return header;
   }
 
-  generateTextOld() {
+  generateTextOrigin() {
     const tableNames = _.keys(this.tables);
 
     const header = this.makeHeaderTemplate();
@@ -239,8 +242,7 @@ export class AutoGenerator {
       }
 
       const re = new RegExp('#TABLE#', 'g');
-      str = str.replace(re, tableName);
-
+      str = str.replace(re, tableName.replace(this.options.prefix as string, ''));
       text[table] = str;
     });
 

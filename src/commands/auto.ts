@@ -18,6 +18,7 @@ interface AutoCommandOptions {
   port?: number; // Database port
   password: string; // Database password
   template?: string | false; // Template to use for the generated models
+  prefix?: string; // Prefix for the generated models
 }
 
 /**
@@ -57,14 +58,15 @@ export async function handleAutoCommand(options: AutoCommandOptions): Promise<vo
     autoOptions.username = user || config?.auto?.username;
     autoOptions.password = password || config?.auto?.password;
     autoOptions.template = autoOptions.template || config?.auto?.template;
+    autoOptions.prefix = config?.auto?.prefix || options.prefix || '';
     if (!autoOptions.template && typeof autoOptions.template !== 'boolean') {
       let templatePath = resolve(defaultTemplate);
       autoOptions.template = templatePath;
     }
     // lock down the dialect to MySQL
     autoOptions.dialect = 'mysql'; // Default dialect is MySQL
-
     autoOptions.lang = 'ts'; // Default language is TypeScript
+    autoOptions.useDefine = true; // Default to using define for model definitions
 
     if (autoOptions.directory) {
       autoOptions.directory = path.resolve(autoOptions.directory);

@@ -187,6 +187,8 @@ export interface AutoOptions {
   useDefine: boolean;
 
   template?: string | false;
+
+  prefix?: string; // Prefix for the generated models
 }
 
 export type TSField = { special: string[]; elementType: string; } & ColumnDescription;
