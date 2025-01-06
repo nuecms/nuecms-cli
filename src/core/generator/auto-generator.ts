@@ -105,7 +105,7 @@ export class AutoGenerator {
         allowNull: fieldObj.allowNull,
         primaryKey: fieldObj.primaryKey,
         autoIncrement: fieldObj.autoIncrement,
-        defaultValue: fieldObj.defaultValue,
+        defaultValue: this.getDefaultValue(table, field),
         comment: fieldObj.comment,
       };
     });
@@ -321,21 +321,117 @@ export class AutoGenerator {
     return str;
   }
 
-  // Create a string containing field attributes (type, defaultValue, etc.)
   private addField(table: string, field: string): string {
-
     // ignore Sequelize standard fields
+
     // const additional = this.options.additional;
     // if (additional && (additional.timestamps !== false) && (this.isTimestampField(field) || this.isParanoidField(field))) {
     //   return '';
     // }
-
     if (this.isIgnoredField(field)) {
       return '';
     }
+    const fieldName = recase(this.options.caseProp, field);
+    const fieldOptions: Record<string, any> = this.getFieldOptions(table, field);
 
-    // Find foreign key
-    const foreignKey = this.foreignKeys[table] && this.foreignKeys[table][field] ? this.foreignKeys[table][field] : null;
+    let str = this.quoteName(fieldName) + ": ";
+    str += this.buildObject(fieldOptions);
+    return str;
+  }
+
+  private getDefaultValue(table: string, field: string): string {
+    const val = this._getDefaultValue(table, field);
+    if (val === true) {
+      return '';
+    }
+    return val;
+  }
+
+  private _getDefaultValue(table: string, field: string): any {
+    const fieldObj = this.tables[table][field] as Field;
+    const isSerialKey = (fieldObj.foreignKey && fieldObj.foreignKey.isSerialKey) ||
+    this.dialect.isSerialKey && this.dialect.isSerialKey(fieldObj);
+
+    const quoteWrapper = '"';
+
+    let defaultVal = fieldObj.defaultValue;
+    if (this.dialect.name === "mssql" && defaultVal && defaultVal.toLowerCase() === '(newid())') {
+      defaultVal = null as any; // disable adding "default value" attribute for UUID fields if generating for MS SQL
+    }
+    if (this.dialect.name === "mssql" && (["(NULL)", "NULL"].includes(defaultVal) || typeof defaultVal === "undefined")) {
+      defaultVal = null as any; // Override default NULL in MS SQL to javascript null
+    }
+
+    if (defaultVal === null || defaultVal === undefined) {
+      return true;
+    }
+    if (isSerialKey) {
+      return true; // value generated in the database
+    }
+
+    let val_text = defaultVal;
+    if (_.isString(defaultVal)) {
+      const field_type = fieldObj.type.toLowerCase();
+      defaultVal = this.escapeSpecial(defaultVal);
+
+      while (defaultVal.startsWith('(') && defaultVal.endsWith(')')) {
+        // remove extra parens around mssql defaults
+        defaultVal = defaultVal.replace(/^[(]/, '').replace(/[)]$/, '');
+      }
+
+      if (field_type === 'bit(1)' || field_type === 'bit' || field_type === 'boolean') {
+        // convert string to boolean
+        val_text = /1|true/i.test(defaultVal) ? "true" : "false";
+
+      } else if (this.isArray(field_type)) {
+        // remove outer {}
+        val_text = defaultVal.replace(/^{/, '').replace(/}$/, '');
+        if (val_text && this.isString(fieldObj.elementType)) {
+          // quote the array elements
+          val_text = val_text.split(',').map(s => `"${s}"`).join(',');
+        }
+        val_text = `[${val_text}]`;
+
+      } else if (field_type.match(/^(json)/)) {
+        // don't quote json
+        val_text = defaultVal;
+
+      } else if (field_type === 'uuid' && (defaultVal === 'gen_random_uuid()' || defaultVal === 'uuid_generate_v4()')) {
+        val_text = "DataTypes.UUIDV4";
+
+      } else if (defaultVal.match(/\w+\(\)$/)) {
+        // replace db function with sequelize function
+        val_text = "Sequelize.Sequelize.fn('" + defaultVal.replace(/\(\)$/g, "") + "')";
+
+      } else if (this.isNumber(field_type)) {
+        if (defaultVal.match(/\(\)/g)) {
+          // assume it's a server function if it contains parens
+          val_text = "Sequelize.Sequelize.literal('" + defaultVal + "')";
+        } else {
+          // don't quote numbers
+          val_text = defaultVal;
+        }
+
+      } else if (defaultVal.match(/\(\)/g)) {
+        // embedded function, pass as literal
+        val_text = "Sequelize.Sequelize.literal('" + defaultVal + "')";
+
+      } else if (field_type.indexOf('date') === 0 || field_type.indexOf('timestamp') === 0) {
+        if (_.includes(['current_timestamp', 'current_date', 'current_time', 'localtime', 'localtimestamp'], defaultVal.toLowerCase())) {
+          val_text = "Sequelize.Sequelize.literal('" + defaultVal + "')";
+        } else {
+          val_text = quoteWrapper + defaultVal + quoteWrapper;
+        }
+
+      } else {
+        val_text = quoteWrapper + defaultVal + quoteWrapper;
+      }
+      return val_text;
+    }
+  }
+
+  private getFieldOptions(table: string, field: string): Record<string, any> {
+    const foreignKey = this.foreignKeys[table]?.[field] || null;
     const fieldObj = this.tables[table][field] as Field;
 
     if (_.isObject(foreignKey)) {
@@ -343,178 +439,118 @@ export class AutoGenerator {
     }
 
     const fieldName = recase(this.options.caseProp, field);
-    let str = this.quoteName(fieldName) + ": {\n";
-
     const quoteWrapper = '"';
-
-    const unique = fieldObj.unique || fieldObj.foreignKey && fieldObj.foreignKey.isUnique;
-
-    const isSerialKey = (fieldObj.foreignKey && fieldObj.foreignKey.isSerialKey) ||
-      this.dialect.isSerialKey && this.dialect.isSerialKey(fieldObj);
-
+    const unique = fieldObj.unique || fieldObj.foreignKey?.isUnique;
+    const isSerialKey = fieldObj.foreignKey?.isSerialKey ||
+      (this.dialect.isSerialKey && this.dialect.isSerialKey(fieldObj));
     let wroteAutoIncrement = false;
-    const space = this.space;
 
-    // column's attributes
+    const fieldOptions: Record<string, any> = {};
+
     const fieldAttrs = _.keys(fieldObj);
     fieldAttrs.forEach(attr => {
-
-      // We don't need the special attribute from postgresql; "unique" is handled separately
-      if (attr === "special" || attr === "elementType" || attr === "unique") {
-        return true;
+      if (["special", "elementType", "unique"].includes(attr)) {
+        return;
       }
 
-      if (isSerialKey && !wroteAutoIncrement) {
-        str += space[3] + "autoIncrement: true,\n";
-        // Resort to Postgres' GENERATED BY DEFAULT AS IDENTITY instead of SERIAL
-        if (this.dialect.name === "postgres" && fieldObj.foreignKey && fieldObj.foreignKey.isPrimaryKey === true &&
-          (fieldObj.foreignKey.generation === "ALWAYS" || fieldObj.foreignKey.generation === "BY DEFAULT")) {
-          str += space[3] + "autoIncrementIdentity: true,\n";
-        }
-        wroteAutoIncrement = true;
+      switch (attr) {
+        case "foreignKey":
+          if (foreignKey?.isForeignKey) {
+            fieldOptions.references = {
+              model: fieldObj[attr].foreignSources.target_table,
+              key: fieldObj[attr].foreignSources.target_column,
+            };
+          }
+          break;
+        case "references":
+          // Skip; covered by foreignKey
+          break;
+        case "primaryKey":
+          if (fieldObj[attr] && (!_.has(fieldObj, 'foreignKey') || fieldObj.foreignKey.isPrimaryKey)) {
+            fieldOptions.primaryKey = true;
+          }
+          break;
+        case "autoIncrement":
+          if (fieldObj[attr] && !wroteAutoIncrement) {
+            fieldOptions.autoIncrement = true;
+            if (
+              this.dialect.name === "postgres" &&
+              fieldObj.foreignKey?.isPrimaryKey &&
+              ["ALWAYS", "BY DEFAULT"].includes(fieldObj.foreignKey.generation)
+            ) {
+              fieldOptions.autoIncrementIdentity = true;
+            }
+            wroteAutoIncrement = true;
+          }
+          break;
+        case "allowNull":
+          fieldOptions.allowNull = fieldObj[attr];
+          break;
+        case "defaultValue":
+          const valText = this._getDefaultValue(table, field);
+          if (valText !== true) {
+            fieldOptions.defaultValue = valText;
+          }
+          break;
+        case "comment":
+          if (fieldObj[attr] && this.dialect.name !== "mssql") {
+            fieldOptions.comment =  quoteWrapper + fieldObj[attr] + quoteWrapper;
+          }
+          break;
+        default:
+          let val = (attr !== "type") ? null : this.getSqType(fieldObj, attr);
+          if (val == null) {
+            val = (fieldObj as any)[attr];
+            val = _.isString(val) ? quoteWrapper + this.escapeSpecial(val) + quoteWrapper : val;
+          }
+          fieldOptions[attr] = val;
       }
-
-      if (attr === "foreignKey") {
-        if (foreignKey && foreignKey.isForeignKey) {
-          str += space[3] + "references: {\n";
-          str += space[4] + "model: \'" + fieldObj[attr].foreignSources.target_table + "\',\n";
-          str += space[4] + "key: \'" + fieldObj[attr].foreignSources.target_column + "\'\n";
-          str += space[3] + "}";
-        } else {
-          return true;
-        }
-      } else if (attr === "references") {
-        // covered by foreignKey
-        return true;
-      } else if (attr === "primaryKey") {
-        if (fieldObj[attr] === true && (!_.has(fieldObj, 'foreignKey') || !!fieldObj.foreignKey.isPrimaryKey)) {
-          str += space[3] + "primaryKey: true";
-        } else {
-          return true;
-        }
-      } else if (attr === "autoIncrement") {
-        if (fieldObj[attr] === true && !wroteAutoIncrement) {
-          str += space[3] + "autoIncrement: true,\n";
-          // Resort to Postgres' GENERATED BY DEFAULT AS IDENTITY instead of SERIAL
-          if (this.dialect.name === "postgres" && fieldObj.foreignKey && fieldObj.foreignKey.isPrimaryKey === true && (fieldObj.foreignKey.generation === "ALWAYS" || fieldObj.foreignKey.generation === "BY DEFAULT")) {
-            str += space[3] + "autoIncrementIdentity: true,\n";
-          }
-          wroteAutoIncrement = true;
-        }
-        return true;
-      } else if (attr === "allowNull") {
-        str += space[3] + attr + ": " + fieldObj[attr];
-      } else if (attr === "defaultValue") {
-        let defaultVal = fieldObj.defaultValue;
-        if (this.dialect.name === "mssql" && defaultVal && defaultVal.toLowerCase() === '(newid())') {
-          defaultVal = null as any; // disable adding "default value" attribute for UUID fields if generating for MS SQL
-        }
-        if (this.dialect.name === "mssql" && (["(NULL)", "NULL"].includes(defaultVal) || typeof defaultVal === "undefined")) {
-          defaultVal = null as any; // Override default NULL in MS SQL to javascript null
-        }
-
-        if (defaultVal === null || defaultVal === undefined) {
-          return true;
-        }
-        if (isSerialKey) {
-          return true; // value generated in the database
-        }
-
-        let val_text = defaultVal;
-        if (_.isString(defaultVal)) {
-          const field_type = fieldObj.type.toLowerCase();
-          defaultVal = this.escapeSpecial(defaultVal);
-
-          while (defaultVal.startsWith('(') && defaultVal.endsWith(')')) {
-            // remove extra parens around mssql defaults
-            defaultVal = defaultVal.replace(/^[(]/, '').replace(/[)]$/, '');
-          }
-
-          if (field_type === 'bit(1)' || field_type === 'bit' || field_type === 'boolean') {
-            // convert string to boolean
-            val_text = /1|true/i.test(defaultVal) ? "true" : "false";
-
-          } else if (this.isArray(field_type)) {
-            // remove outer {}
-            val_text = defaultVal.replace(/^{/, '').replace(/}$/, '');
-            if (val_text && this.isString(fieldObj.elementType)) {
-              // quote the array elements
-              val_text = val_text.split(',').map(s => `"${s}"`).join(',');
-            }
-            val_text = `[${val_text}]`;
-
-          } else if (field_type.match(/^(json)/)) {
-            // don't quote json
-            val_text = defaultVal;
-
-          } else if (field_type === 'uuid' && (defaultVal === 'gen_random_uuid()' || defaultVal === 'uuid_generate_v4()')) {
-            val_text = "DataTypes.UUIDV4";
-
-          } else if (defaultVal.match(/\w+\(\)$/)) {
-            // replace db function with sequelize function
-            val_text = "Sequelize.Sequelize.fn('" + defaultVal.replace(/\(\)$/g, "") + "')";
-
-          } else if (this.isNumber(field_type)) {
-            if (defaultVal.match(/\(\)/g)) {
-              // assume it's a server function if it contains parens
-              val_text = "Sequelize.Sequelize.literal('" + defaultVal + "')";
-            } else {
-              // don't quote numbers
-              val_text = defaultVal;
-            }
-
-          } else if (defaultVal.match(/\(\)/g)) {
-            // embedded function, pass as literal
-            val_text = "Sequelize.Sequelize.literal('" + defaultVal + "')";
-
-          } else if (field_type.indexOf('date') === 0 || field_type.indexOf('timestamp') === 0) {
-            if (_.includes(['current_timestamp', 'current_date', 'current_time', 'localtime', 'localtimestamp'], defaultVal.toLowerCase())) {
-              val_text = "Sequelize.Sequelize.literal('" + defaultVal + "')";
-            } else {
-              val_text = quoteWrapper + defaultVal + quoteWrapper;
-            }
-
-          } else {
-            val_text = quoteWrapper + defaultVal + quoteWrapper;
-          }
-        }
-
-        // val_text = _.isString(val_text) && !val_text.match(/^sequelize\.[^(]+\(.*\)$/)
-        // ? self.sequelize.escape(_.trim(val_text, '"'), null, self.options.dialect)
-        // : val_text;
-        // don't prepend N for MSSQL when building models...
-        // defaultVal = _.trimStart(defaultVal, 'N');
-
-        str += space[3] + attr + ": " + val_text;
-
-      } else if (attr === "comment" && (!fieldObj[attr] || this.dialect.name === "mssql")) {
-        return true;
-      } else {
-        let val = (attr !== "type") ? null : this.getSqType(fieldObj, attr);
-        if (val == null) {
-          val = (fieldObj as any)[attr];
-          val = _.isString(val) ? quoteWrapper + this.escapeSpecial(val) + quoteWrapper : val;
-        }
-        str += space[3] + attr + ": " + val;
-      }
-
-      str += ",\n";
     });
 
+    if (isSerialKey && !wroteAutoIncrement) {
+      fieldOptions.autoIncrement = true;
+      if (
+        this.dialect.name === "postgres" &&
+        fieldObj.foreignKey?.isPrimaryKey &&
+        ["ALWAYS", "BY DEFAULT"].includes(fieldObj.foreignKey.generation)
+      ) {
+        fieldOptions.autoIncrementIdentity = true;
+      }
+    }
+    // fieldOptions type is DataTypes.UUID and primaryKey and defaultValue is undefined
+    // set defaultValue: DataTypes.UUIDV4,
+    if (fieldOptions.type === 'DataTypes.UUID' && fieldOptions.primaryKey && fieldOptions.defaultValue === undefined) {
+      fieldOptions.defaultValue = 'DataTypes.UUIDV4';
+    }
+
     if (unique) {
-      const uniq = _.isString(unique) ? quoteWrapper + unique.replace(/\"/g, '\\"') + quoteWrapper : unique;
-      str += space[3] + "unique: " + uniq + ",\n";
+      fieldOptions.unique = _.isString(unique)
+        ? quoteWrapper + unique.replace(/\"/g, '\\"') + quoteWrapper
+        : unique;
     }
 
     if (field !== fieldName) {
-      str += space[3] + "field: '" + field + "',\n";
+      fieldOptions.field = field;
     }
 
-    // removes the last `,` within the attribute options
+    return fieldOptions;
+  }
+
+  private buildObject(fieldOptions: Record<string, any>): string {
+    const space = this.space;
+    let str = '{\n';
+    Object.entries(fieldOptions).forEach(([key, value]) => {
+      str += `${space[3]}${key}: ${
+        _.isObject(value) ? this.buildObject(value) : value
+      },\n`;
+    });
     str = str.trim().replace(/,+$/, '') + "\n";
     str = space[2] + str + space[2] + "},\n";
     return str;
   }
+
+
+
 
   private addIndexes(table: string) {
     const indexes = this.indexes[table];

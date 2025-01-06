@@ -12,7 +12,7 @@ export default function (sequelize: Sequelize, DataTypes: typeof SequelizeDataTy
         <% if (field.primaryKey) { %>primaryKey: true,<% } %>
         <% if (field.autoIncrement) { %>autoIncrement: true,<% } %>
         <% if (field.defaultValue) { %>
-        defaultValue: <% if (typeof field.defaultValue === 'string') { %>'<%= field.defaultValue %>'<% } else { %><%= field.defaultValue %><% } %>,
+        defaultValue: <%= field.defaultValue %>,
         <% } %>
         <% if (field.comment) { %>comment: '<%= field.comment %>',<% } %>
       },
