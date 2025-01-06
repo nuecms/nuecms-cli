@@ -3,7 +3,7 @@ import _ from "lodash";
 import path from "path";
 import util from "util";
 import { FKSpec } from "./dialects/dialect-options";
-import { AutoOptions, TableData, CaseFileOption, CaseOption, LangOption, makeIndent, makeTableName, pluralize, qNameSplit, recase, Relation } from "./types";
+import { AutoOptions, TableData, CaseFileOption, CaseOption, LangOption, makeIndent, makeTableName, pluralize, qNameSplit, recase, Relation, cutPrefix } from "./types";
 import prettier from "prettier";
 import { loadConfig } from '../../config/loadConfig';
 
@@ -26,6 +26,7 @@ export class AutoWriter {
     useDefine?: boolean;
     spaces?: boolean;
     indentation?: number;
+    prefix?: string;
   };
   prettierConfig: prettier.Options | undefined;
   constructor(tableData: TableData, options: AutoOptions) {
@@ -92,7 +93,7 @@ export class AutoWriter {
     // is up to the developer to pick the right schema, and potentially chose different output
     // folders for each different schema.
     const [schemaName, tableName] = qNameSplit(table);
-    const fileName = recase(this.options.caseFile, tableName, this.options.singularize);
+    const fileName = cutPrefix(this.options.prefix, recase(this.options.caseFile, tableName, this.options.singularize));
     const filePath = path.join(this.options.directory, fileName + (this.options.lang === 'ts' ? '.ts' : '.js'));
     const writeFile = util.promisify(fs.writeFile);
     const prettierOptions: prettier.Options = _.merge({}, {
@@ -145,8 +146,8 @@ export class AutoWriter {
     const modelNames: string[] = [];
     // import statements
     tables.forEach(t => {
-      const fileName = recase(this.options.caseFile, t, this.options.singularize);
-      const modelName = makeTableName(this.options.caseModel, t, this.options.singularize, this.options.lang);
+      const fileName = cutPrefix(this.options.prefix, recase(this.options.caseFile, t, this.options.singularize));
+      const modelName = cutPrefix(this.options.prefix, makeTableName(this.options.caseModel, t, this.options.singularize, this.options.lang));
       modelNames.push(modelName);
       str += `import { ${modelName} as _${modelName} } from "./${fileName}";\n`;
       str += `import type { ${modelName}Attributes, ${modelName}CreationAttributes } from "./${fileName}";\n`;
@@ -193,8 +194,8 @@ export class AutoWriter {
     const modelNames: string[] = [];
     // import statements
     tables.forEach(t => {
-      const fileName = recase(this.options.caseFile, t, this.options.singularize);
-      const modelName = makeTableName(this.options.caseModel, t, this.options.singularize, this.options.lang);
+      const fileName = cutPrefix(this.options.prefix, recase(this.options.caseFile, t, this.options.singularize));
+      const modelName = cutPrefix(this.options.prefix, makeTableName(this.options.caseModel, t, this.options.singularize, this.options.lang));
       modelNames.push(modelName);
       str += `${vardef} _${modelName} = require("./${fileName}");\n`;
     });
@@ -229,8 +230,8 @@ export class AutoWriter {
     const modelNames: string[] = [];
     // import statements
     tables.forEach(t => {
-      const fileName = recase(this.options.caseFile, t, this.options.singularize);
-      const modelName = makeTableName(this.options.caseModel, t, this.options.singularize, this.options.lang);
+      const fileName = cutPrefix(this.options.prefix, recase(this.options.caseFile, t, this.options.singularize));
+      const modelName = cutPrefix(this.options.prefix, makeTableName(this.options.caseModel, t, this.options.singularize, this.options.lang));
       modelNames.push(modelName);
       str += `import _${modelName} from  "./${fileName}.js";\n`;
     });

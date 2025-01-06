@@ -18,6 +18,8 @@ interface AutoConfig {
   directory?: string;
   template?: string;
   prefix?: string;
+  useDefine?: boolean;
+  singularize?: boolean;
 }
 
 export interface UserConfig {

@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { ColumnDescription } from "sequelize/types";
 import { DialectOptions, FKSpec } from "./dialects/dialect-options";
-import { AutoOptions, CaseFileOption, CaseOption, Field, IndexSpec, LangOption, makeIndent, makeTableName, pluralize, qNameJoin, qNameSplit, recase, Relation, singularize, TableData, TSField } from "./types";
+import { AutoOptions, CaseFileOption, CaseOption, cutPrefix, Field, IndexSpec, LangOption, makeIndent, makeTableName, pluralize, qNameJoin, qNameSplit, recase, Relation, singularize, TableData, TSField } from "./types";
 import fs from "fs";
 
 /** Generates text from each table in TableData */
@@ -71,7 +71,7 @@ export class AutoGenerator {
     tableNames.forEach(table => {
       const [schemaName, tableNameOrig] = qNameSplit(table);
       const tableName = makeTableName(this.options.caseModel, tableNameOrig, this.options.singularize, this.options.lang);
-      const useName = tableName.replace(this.options.prefix as string, '');
+      const useName = cutPrefix(this.options.prefix, tableName);
 
       // 准备模板数据
       const templateData = {
@@ -183,7 +183,7 @@ export class AutoGenerator {
         needed.forEach(fkTable => {
           const set = associations.needed[fkTable];
           const [fkSchema, fkTableName] = qNameSplit(fkTable);
-          const filename = recase(this.options.caseFile, fkTableName, this.options.singularize);
+          const filename = cutPrefix(this.options.prefix, recase(this.options.caseFile, fkTableName, this.options.singularize));
           str += 'import type { ';
           str += Array.from(set.values()).sort().join(', ');
           str += ` } from './${filename}';\n`;
@@ -242,7 +242,7 @@ export class AutoGenerator {
       }
 
       const re = new RegExp('#TABLE#', 'g');
-      str = str.replace(re, tableName.replace(this.options.prefix as string, ''));
+      str = str.replace(re, cutPrefix(this.options.prefix, tableName));
       text[table] = str;
     });
 
@@ -325,10 +325,10 @@ export class AutoGenerator {
   private addField(table: string, field: string): string {
 
     // ignore Sequelize standard fields
-    const additional = this.options.additional;
-    if (additional && (additional.timestamps !== false) && (this.isTimestampField(field) || this.isParanoidField(field))) {
-      return '';
-    }
+    // const additional = this.options.additional;
+    // if (additional && (additional.timestamps !== false) && (this.isTimestampField(field) || this.isParanoidField(field))) {
+    //   return '';
+    // }
 
     if (this.isIgnoredField(field)) {
       return '';
@@ -601,7 +601,13 @@ export class AutoGenerator {
     } else if (type.match(/n?varchar|string|varying/)) {
       val = 'DataTypes.STRING' + (!_.isNull(length) ? length : '');
     } else if (type.match(/^n?char/)) {
-      val = 'DataTypes.CHAR' + (!_.isNull(length) ? length : '');
+      // if length 36 use UUID
+      if (length && length[0] === '(36)') {
+        val = 'DataTypes.UUID';
+      } else {
+        val = 'DataTypes.STRING' + (!_.isNull(length) ? length : '');
+      }
+      // val = 'DataTypes.CHAR' + (!_.isNull(length) ? length : '');
     } else if (type.match(/^real/)) {
       val = 'DataTypes.REAL';
     } else if (type.match(/text$/)) {

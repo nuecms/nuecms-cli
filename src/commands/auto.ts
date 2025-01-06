@@ -38,17 +38,15 @@ export async function handleAutoCommand(options: AutoCommandOptions): Promise<vo
   } = options;
 
   try {
-    let autoOptions: AutoOptions = {
+    let autoOptions: Partial<AutoOptions> = {
       host,
       directory: out,
       port,
       additional: {
-        timestamps: false, // Disable timestamps by default in the generated models
+      timestamps: true, // Disable timestamps by default in the generated models
       },
       tables,
-      template,
-      singularize: true,
-      useDefine: false,
+      template
     };
     const defaultTemplate = 'templates/auto/model.ts'
     const config = await loadConfig();
@@ -59,6 +57,8 @@ export async function handleAutoCommand(options: AutoCommandOptions): Promise<vo
     autoOptions.password = password || config?.auto?.password;
     autoOptions.template = autoOptions.template || config?.auto?.template;
     autoOptions.prefix = config?.auto?.prefix || options.prefix || '';
+    autoOptions.useDefine = autoOptions.useDefine || config?.auto?.useDefine || false;
+    autoOptions.singularize = config?.auto?.singularize === undefined ? true : config?.auto?.singularize;
     if (!autoOptions.template && typeof autoOptions.template !== 'boolean') {
       let templatePath = resolve(defaultTemplate);
       autoOptions.template = templatePath;
@@ -66,7 +66,6 @@ export async function handleAutoCommand(options: AutoCommandOptions): Promise<vo
     // lock down the dialect to MySQL
     autoOptions.dialect = 'mysql'; // Default dialect is MySQL
     autoOptions.lang = 'ts'; // Default language is TypeScript
-    autoOptions.useDefine = true; // Default to using define for model definitions
 
     if (autoOptions.directory) {
       autoOptions.directory = path.resolve(autoOptions.directory);
@@ -96,7 +95,7 @@ export async function handleAutoCommand(options: AutoCommandOptions): Promise<vo
     }
 
     // Initialize SequelizeAuto
-    const auto = new SequelizeAuto(database, autoOptions.username, autoOptions.password, autoOptions);
+    const auto = new SequelizeAuto(database, autoOptions.username, autoOptions.password, autoOptions as AutoOptions);
     // Generate models
     await auto.run();
     console.log(`Models successfully generated in: ${out}`);

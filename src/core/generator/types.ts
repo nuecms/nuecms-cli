@@ -255,3 +255,11 @@ export function makeIndent(spaces: boolean | undefined, indent: number | undefin
   }
   return space;
 }
+
+// Remove prefix from table name
+export function cutPrefix(prefix: string | undefined, tableName: string): string {
+  if (prefix && tableName.startsWith(prefix)) {
+    return tableName.slice(prefix.length);
+  }
+  return tableName;
+}
