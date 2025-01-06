@@ -1,4 +1,5 @@
 import prettier from "prettier";
+import { AutoOptions } from "../core/generator/types";
 
 interface Prompt {
   type: string;
@@ -31,7 +32,7 @@ export interface UserConfig {
       [key: string]: Array<Prompt>
     };
   };
-  auto?: AutoConfig;
+  auto?: AutoOptions;
   prettier?: prettier.Options;
 }
 

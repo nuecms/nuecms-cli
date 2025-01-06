@@ -1,24 +1,35 @@
 import path from 'path';
-import { SequelizeAuto, } from '../core/generator/auto';
+import _ from 'lodash';
+import { SequelizeAuto } from '../core/generator/auto';
 import { AutoOptions } from '../core/generator/types';
 import { loadConfig } from '../config/loadConfig';
 import { createResolver } from '../utils/resolve';
 
 const { resolve } = createResolver(import.meta.url);
 
-/**
- * Command-line options for the `auto` command.
- */
 interface AutoCommandOptions {
-  out: string; // Output directory for the generated models
-  database: string; // Database name
-  tables?: string[]; // Optional list of specific tables to generate models for
-  host?: string; // Database host (default: 'localhost')
-  user: string; // Database user
-  port?: number; // Database port
-  password: string; // Database password
-  template?: string | false; // Template to use for the generated models
-  prefix?: string; // Prefix for the generated models
+  out: string;
+  database: string;
+  tables?: string[];
+  host?: string;
+  user: string;
+  port?: number;
+  password: string;
+  template?: string | false;
+  prefix?: string;
+}
+
+/**
+ * Validates required fields for the `auto` command.
+ * @param {Partial<AutoOptions>} options - Options to validate.
+ * @throws Will throw an error if validation fails.
+ */
+function validateOptions(options: Partial<AutoOptions>) {
+  const requiredFields = ['directory', 'database', 'username', 'password'];
+  const missingFields = requiredFields.filter(field => !_.get(options, field));
+  if (!_.isEmpty(missingFields)) {
+    throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+  }
 }
 
 /**
@@ -26,81 +37,61 @@ interface AutoCommandOptions {
  * @param {AutoCommandOptions} options - The command-line options.
  */
 export async function handleAutoCommand(options: AutoCommandOptions): Promise<void> {
-  const {
-    out,
-    database,
-    tables,
-    host = 'localhost',
-    user,
-    port,
-    password,
-    template,
-  } = options;
-
   try {
-    let autoOptions: Partial<AutoOptions> = {
-      host,
-      directory: out,
-      port,
-      additional: {
-      timestamps: true, // Disable timestamps by default in the generated models
-      },
-      tables,
-      template
-    };
-    const defaultTemplate = 'templates/auto/model.ts'
     const config = await loadConfig();
-    autoOptions.host = autoOptions.host || config?.auto?.host;
-    autoOptions.port = autoOptions.port || config?.auto?.port;
-    autoOptions.database = autoOptions.database || config?.auto?.database;
-    autoOptions.username = user || config?.auto?.username;
-    autoOptions.password = password || config?.auto?.password;
-    autoOptions.template = autoOptions.template || config?.auto?.template;
-    autoOptions.prefix = config?.auto?.prefix || options.prefix || '';
-    autoOptions.useDefine = autoOptions.useDefine || config?.auto?.useDefine || false;
-    autoOptions.singularize = config?.auto?.singularize === undefined ? true : config?.auto?.singularize;
+    const defaultTemplate = 'templates/auto/model.ts';
+
+    // Merge options with defaults from config
+    const autoOptions = _.merge(
+      {
+        host: 'localhost',
+        dialect: 'mysql',
+        lang: 'ts',
+        additional: { timestamps: true },
+      },
+      config?.auto,
+      {
+        directory: options.out,
+        database: options.database,
+        username: options.user,
+        password: options.password,
+        tables: options.tables,
+        port: options.port,
+        template: options.template,
+        prefix: options.prefix,
+      }
+    ) as AutoOptions;
+
+    autoOptions.useDefine = autoOptions.useDefine ?? config?.auto?.useDefine ?? false;
+    autoOptions.singularize = config?.auto?.singularize ?? true;
     if (!autoOptions.template && typeof autoOptions.template !== 'boolean') {
       let templatePath = resolve(defaultTemplate);
       autoOptions.template = templatePath;
     }
-    // lock down the dialect to MySQL
-    autoOptions.dialect = 'mysql'; // Default dialect is MySQL
-    autoOptions.lang = 'ts'; // Default language is TypeScript
 
+    console.log('Generating models with options:', autoOptions);
+
+    // Ensure directory is resolved as an absolute path
     if (autoOptions.directory) {
       autoOptions.directory = path.resolve(autoOptions.directory);
-    } else {
-      autoOptions.directory = config?.auto?.directory as string
     }
 
     // Validate required fields
-    if (!autoOptions.directory) {
-      console.error('Error: Output directory (--out) is required.');
-      process.exit(1);
-    }
-
-    if (!autoOptions.database) {
-      console.error('Error: Database name (--database) is required.');
-      process.exit(1);
-    }
-
-    if (!autoOptions.username) {
-      console.error('Error: Database user (--user) is required.');
-      process.exit(1);
-    }
-
-    if (!autoOptions.password) {
-      console.error('Error: Database password (--password) is required.');
-      process.exit(1);
-    }
+    validateOptions(autoOptions);
 
     // Initialize SequelizeAuto
-    const auto = new SequelizeAuto(database, autoOptions.username, autoOptions.password, autoOptions as AutoOptions);
+    const auto = new SequelizeAuto(
+      autoOptions.database as string,
+      autoOptions.username as string,
+      autoOptions.password as string,
+      autoOptions as AutoOptions
+    );
+
     // Generate models
     await auto.run();
-    console.log(`Models successfully generated in: ${out}`);
-  } catch (error: any) {
-    console.log(error);
-    console.error('Error generating models:', error.message);
+    console.log(`Models successfully generated in: ${autoOptions.directory}`);
+  } catch (error) {
+    console.error('Error generating models:', (error as Error).message);
+    process.exit(1); // Exit on error
   }
 }

@@ -3,7 +3,7 @@ import { Sequelize, DataTypes as SequelizeDataTypes } from 'sequelize';
 
 export default function (sequelize: Sequelize, DataTypes: typeof SequelizeDataTypes) {
   const table = sequelize.define(
-    '<%= tableName %>',
+    '<%= useName %>',
     {
       <% _.forEach(fields, function(field) { %>
       <%= field.name %>: {
