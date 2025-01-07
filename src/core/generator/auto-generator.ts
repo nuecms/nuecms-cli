@@ -549,9 +549,6 @@ export class AutoGenerator {
     return str;
   }
 
-
-
-
   private addIndexes(table: string) {
     const indexes = this.indexes[table];
     const space = this.space;

@@ -17,7 +17,7 @@ interface AutoConfig {
   password: string;
   database: string;
   directory?: string;
-  template?: string;
+  template?: string | false;
   prefix?: string;
   useDefine?: boolean;
   singularize?: boolean;
