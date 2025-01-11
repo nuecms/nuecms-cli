@@ -8,6 +8,13 @@ import prettier from "prettier";
 import { loadConfig } from '../../config/loadConfig';
 
 /** Writes text into files from TableData.text, and writes init-models */
+
+// 定义常量来管理标记字段
+const MODEL_IMPORT_PLACEHOLDER = '// [AUTO_INSERT_MODEL_IMPORT]\n';
+const MODEL_EXPORT_PLACEHOLDER = '// [AUTO_INSERT_MODEL_EXPORT]\n';
+const TYPE_EXPORT_PLACEHOLDER = '// [AUTO_INSERT_TYPE_EXPORT]\n';
+const MODEL_INIT_PLACEHOLDER = '// [AUTO_INSERT_MODEL_INIT]\n';
+const MODEL_RETURN_PLACEHOLDER = '// [AUTO_INSERT_MODEL_RETURN]\n';
 export class AutoWriter {
   tableText: { [name: string]: string };
   foreignKeys: { [tableName: string]: { [fieldName: string]: FKSpec } };
@@ -42,7 +49,7 @@ export class AutoWriter {
       return Promise.resolve();
     }
 
-    const nueConfig  = await loadConfig();
+    const nueConfig = await loadConfig();
     this.prettierConfig = nueConfig?.prettier;
 
 
@@ -67,8 +74,9 @@ export class AutoWriter {
 
     // write the init-models file
     if (!this.options.noInitModels) {
-      const initString = this.createInitString(tableNames, assoc, this.options.lang);
       const initFilePath = path.join(this.options.directory, "init-models" + (isTypeScript ? '.ts' : '.js'));
+      const oldFileContent = fs.existsSync(initFilePath) ? fs.readFileSync(initFilePath, 'utf-8') : '';
+      const initString = this.createInitString(tableNames, oldFileContent, assoc, this.options.lang);
       const writeFile = util.promisify(fs.writeFile);
       const initPromise = writeFile(path.resolve(initFilePath), initString);
       promises.push(initPromise);
@@ -76,14 +84,14 @@ export class AutoWriter {
 
     return Promise.all(promises);
   }
-  private createInitString(tableNames: string[], assoc: string, lang?: string) {
+  private createInitString(tableNames: string[], oldFileContent: string, assoc: string, lang?: string) {
     switch (lang) {
       case 'ts':
-        return this.createTsInitString(tableNames, assoc);
+        return this.createTsInitString(tableNames, oldFileContent, assoc);
       case 'esm':
         return this.createESMInitString(tableNames, assoc);
       case 'es6':
-          return this.createES5InitString(tableNames, assoc, "const");
+        return this.createES5InitString(tableNames, assoc, "const");
       default:
         return this.createES5InitString(tableNames, assoc, "var");
     }
@@ -139,9 +147,15 @@ export class AutoWriter {
     return strBelongsToMany + strBelongs;
   }
 
-  // create the TypeScript init-models file to load all the models into Sequelize
-  private createTsInitString(tables: string[], assoc: string) {
-    let str = 'import type { Sequelize } from "sequelize";\n';
+
+
+  private createTsInitString(tables: string[], oldFileContent: string, assoc: string) {
+    if (oldFileContent) {
+      return this.updateTsInitString(oldFileContent, tables, assoc);
+    }
+
+    // 如果文件内容为空，生成全新的内容
+    let str = 'import type { Sequelize } from "sequelize";\n' + MODEL_IMPORT_PLACEHOLDER;
     const sp = this.space[1];
     const modelNames: string[] = [];
     // import statements
@@ -153,14 +167,14 @@ export class AutoWriter {
       str += `import type { ${modelName}Attributes, ${modelName}CreationAttributes } from "./${fileName}";\n`;
     });
     // re-export the model classes
-    str += '\nexport {\n';
+    str += '\nexport {\n' + MODEL_EXPORT_PLACEHOLDER;
     modelNames.forEach(m => {
       str += `${sp}_${m} as ${m},\n`;
     });
     str += '};\n';
 
     // re-export the model attirbutes
-    str += '\nexport type {\n';
+    str += '\nexport type {\n' + TYPE_EXPORT_PLACEHOLDER;
     modelNames.forEach(m => {
       str += `${sp}${m}Attributes,\n`;
       str += `${sp}${m}CreationAttributes,\n`;
@@ -168,7 +182,7 @@ export class AutoWriter {
     str += '};\n\n';
 
     // create the initialization function
-    str += 'export function initModels(sequelize: Sequelize) {\n';
+    str += 'export function initModels(sequelize: Sequelize) {\n' + MODEL_INIT_PLACEHOLDER;
     modelNames.forEach(m => {
       str += `${sp}const ${m} = _${m}.initModel(sequelize);\n`;
     });
@@ -177,7 +191,7 @@ export class AutoWriter {
     str += "\n" + assoc;
 
     // return the models
-    str += `\n${sp}return {\n`;
+    str += `\n${sp}return {\n` + MODEL_RETURN_PLACEHOLDER;
     modelNames.forEach(m => {
       str += `${this.space[2]}${m}: ${m},\n`;
     });
@@ -185,6 +199,101 @@ export class AutoWriter {
     str += '}\n';
 
     return str;
+  }
+
+  private updateTsInitString(oldFileContent: string, tables: string[], assoc: string): string {
+    let updatedContent = oldFileContent;
+
+    // 提取现有导入的模型，避免重复导入
+    const existingModels = this.extractExistingModels(updatedContent);
+    const newModels: string[] = [];
+
+    // 生成新的 import 和类型语句
+    tables.forEach(t => {
+      const fileName = cutPrefix(this.options.prefix, recase(this.options.caseFile, t, this.options.singularize));
+      const modelName = cutPrefix(this.options.prefix, makeTableName(this.options.caseModel, t, this.options.singularize, this.options.lang));
+
+      if (!existingModels.includes(modelName)) {
+        newModels.push(modelName);
+
+        // 插入导入语句
+        updatedContent = this.insertAfterPlaceholder(
+          updatedContent,
+          MODEL_IMPORT_PLACEHOLDER,
+          `import { ${modelName} as _${modelName} } from "./${fileName}";\nimport type { ${modelName}Attributes, ${modelName}CreationAttributes } from "./${fileName}";\n`
+        );
+
+        // 插入模型导出
+        updatedContent = this.insertAfterPlaceholder(
+          updatedContent,
+          MODEL_EXPORT_PLACEHOLDER,
+          `  _${modelName} as ${modelName},\n`
+        );
+
+        // 插入类型导出
+        updatedContent = this.insertAfterPlaceholder(
+          updatedContent,
+          TYPE_EXPORT_PLACEHOLDER,
+          `  ${modelName}Attributes,\n  ${modelName}CreationAttributes,\n`
+        );
+
+        // 插入初始化语句
+        updatedContent = this.insertAfterPlaceholder(
+          updatedContent,
+          MODEL_INIT_PLACEHOLDER,
+          `  const ${modelName} = _${modelName}.initModel(sequelize);\n`
+        );
+
+        // 插入返回模型
+        updatedContent = this.insertAfterPlaceholder(
+          updatedContent,
+          MODEL_RETURN_PLACEHOLDER,
+          `    ${modelName}: ${modelName},\n`
+        );
+      }
+    });
+
+    // 如果有新的关联逻辑，追加到关联占位符
+    if (assoc) {
+      updatedContent = this.insertAfterPlaceholder(updatedContent, MODEL_INIT_PLACEHOLDER, `\n${assoc}\n`);
+    }
+
+    return updatedContent;
+  }
+
+  /**
+   * 提取现有文件中的模型名
+   */
+  private extractExistingModels(fileContent: string): string[] {
+    const modelRegex = /import { (\w+) as _\1 }/g;
+    const existingModels: string[] = [];
+    let match;
+
+    while ((match = modelRegex.exec(fileContent)) !== null) {
+      existingModels.push(match[1]);
+    }
+
+    return existingModels;
+  }
+
+  /**
+   * 在指定占位符后插入新的内容
+   */
+  private insertAfterPlaceholder(fileContent: string, placeholder: string, newContent: string): string {
+    const index = fileContent.indexOf(placeholder);
+    if (index === -1) {
+      return fileContent; // 如果找不到占位符，不做任何修改
+    }
+
+    const before = fileContent.slice(0, index + placeholder.length);
+    const after = fileContent.slice(index + placeholder.length);
+
+    // 避免重复插入同一内容
+    if (after.includes(newContent.trim())) {
+      return fileContent;
+    }
+
+    return before + '\n' + newContent + after;
   }
 
   // create the ES5 init-models file to load all the models into Sequelize

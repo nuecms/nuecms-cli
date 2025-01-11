@@ -2,21 +2,28 @@ import fs from 'fs';
 import path from 'path';
 import { input, select } from '@inquirer/prompts';
 import { createResolver } from '../utils/resolve';
+import { titleCase } from '../utils/case';
 const { resolve } = createResolver(import.meta.url);
 
 // Template file mapping
 const templates = {
+  frontEnd: {
+    'client/pages/{name}.vue': 'templates/mods/views/page.vue',
+    'server/controllers/dto/{Name}Dto.ts': 'templates/mods/dto/admin-dto.ts',
+    'server/controllers/{Name}.ts': 'templates/mods/controllers/controller.ts',
+  },
+  admin: {
   'client/pages/admin/{name}.vue': 'templates/mods/views/admin-page.vue',
-  'client/pages/{name}.vue': 'templates/mods/views/page.vue',
-  'server/seeders/{name}.ts': 'templates/mods/seeders/seeder.ts',
-  'server/models/{name}.ts': 'templates/mods/models/model.ts',
-  'server/controllers/{Name}.ts': 'templates/mods/controllers/controller.ts',
   'server/controllers/admin/{Name}Controller.ts': 'templates/mods/controllers/controller.ts',
   'server/controllers/admin/dto/{Name}Dto.ts': 'templates/mods/dto/admin-dto.ts',
-  'server/controllers/dto/{Name}Dto.ts': 'templates/mods/dto/admin-dto.ts',
+  },
+  default: {
+  'server/seeders/{name}.ts': 'templates/mods/seeders/seeder.ts',
+  'server/models/{name}.ts': 'templates/mods/models/model.ts'
+  }
 };
 
-async function promptUser(): Promise<{ moduleName: string; admin: string }> {
+async function promptUser(): Promise<{ moduleName: string; admin: string, frontPage: string }> {
   const moduleName = await input({
     message: 'Please enter the module name:',
     validate: (input: string) => (input ? true : 'Module name cannot be empty'),
@@ -25,7 +32,13 @@ async function promptUser(): Promise<{ moduleName: string; admin: string }> {
     message: 'Is this an admin module?',
     choices: ['Yes', 'No'],
   }) as string;
-  return { moduleName, admin };
+
+  const frontPage = await select({
+    message: 'Is this the front page?',
+    choices: ['Yes', 'No'],
+  }) as string;
+
+  return { moduleName, admin, frontPage };
 }
 
 function createFileFromTemplate(target: string, template: string, replacements: Record<string, string>): void {
@@ -47,20 +60,24 @@ function createFileFromTemplate(target: string, template: string, replacements: 
   }
 }
 
-export function createModuleStructure(moduleName: string, admin: string): void {
-  const caseName = moduleName.charAt(0).toUpperCase() + moduleName.slice(1);
+export function createModuleStructure({ moduleName, admin, frontPage }: { moduleName: string; admin: string, frontPage: string }): void {
+  const caseName = titleCase(moduleName);
   const replacements = {
     moduleName: moduleName,
     ModuleName: caseName
   };
-
   const isAdmin = admin === 'Yes';
+  const isFrontPage = frontPage === 'Yes';
+  let  createTemplates = {} as Record<string, string>;
+  createTemplates = templates.default;
+  if (isAdmin) {
+    createTemplates = { ...createTemplates, ...templates.admin };
+  }
+  if (isFrontPage) {
+    createTemplates = { ...createTemplates, ...templates.frontEnd };
+  }
 
-  Object.entries(templates).forEach(([target, template]) => {
-    // Skip admin files if module is not admin
-    if (target.includes('admin') && !isAdmin) {
-      return
-    }
+  Object.entries(createTemplates).forEach(([target, template]) => {
     const targetPath = path.resolve(
       process.cwd(),
       target.replace('{name}', moduleName).replace('{Name}', caseName)
@@ -76,6 +93,6 @@ export function createModuleStructure(moduleName: string, admin: string): void {
 }
 
 export async function handleModCommand(): Promise<void> {
-  const { moduleName, admin } = await promptUser();
-  createModuleStructure(moduleName, admin);
+  const { moduleName, admin, frontPage } = await promptUser();
+  createModuleStructure({ moduleName, admin, frontPage });
 }
