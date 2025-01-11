@@ -59,6 +59,7 @@
     "dotenv": "^16.4.7",
     "lodash": "^4.17.21",
     "mysql2": "^3.2.0",
+    "openai": "^4.78.1",
     "prettier": "^3.4.2"
   },
   "peerDependencies": {

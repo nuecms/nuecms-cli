@@ -34,6 +34,15 @@ export interface UserConfig {
   };
   auto?: AutoConfig;
   prettier?: prettier.Options;
+  aiConfig?: {
+    baseURL: string;
+    apiKey: string;
+    model: string;
+  };
+  jsonsql?: {
+    ai: boolean;
+    prompt?: string;
+  };
 }
 
 export function defineConfig(config: UserConfig): UserConfig {
