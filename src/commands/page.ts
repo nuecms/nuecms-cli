@@ -28,8 +28,8 @@ async function promptUser(config: any): Promise<PageConf> {
     },
   });
 
-  const customPrompts = config.cli.prompt[pageName]
-    ? config.cli.prompt[pageName]
+  const customPrompts = config.page[pageName]
+    ? config.page[pageName].prompt
     : [];
   const customObj = {} as Record<string, string>;
   for (const prompt of customPrompts) {
@@ -58,12 +58,11 @@ async function promptUser(config: any): Promise<PageConf> {
 async function createPageStructure(options: PageConf, config: any): Promise<void> {
   const { pageName, targetPath } = options;
 
-  // config?.cli.page is an object with keys as key and values as file path
-  const name = config?.cli.page[pageName];
-  if (!name) {
+  const page = config?.page[pageName];
+  if (!page) {
     throw new Error(`Page name "${pageName}" is not defined in the nue.config.ts configuration.`);
   }
-  const templatePath = path.resolve(process.cwd(), name);
+  const templatePath = path.resolve(process.cwd(), page.template);
   const content = fs.readFileSync(templatePath, 'utf-8');
   const filePath = path.resolve(process.cwd(), targetPath);
   const pagePath = path.dirname(filePath);

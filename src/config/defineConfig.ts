@@ -24,14 +24,12 @@ interface AutoConfig {
 }
 
 export interface UserConfig {
-  cli: {
-    page: {
-      [key: string]: string
-    };
-    prompt?: {
-      [key: string]: Array<Prompt>
-    };
-  };
+  page?: {
+    [key: string]: {
+      template: string;
+      prompt?: Array<Prompt>
+    }
+  },
   auto?: AutoConfig;
   prettier?: prettier.Options;
   aiConfig?: {
