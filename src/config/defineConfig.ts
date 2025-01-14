@@ -1,5 +1,5 @@
 import prettier from "prettier";
-// import { AutoOptions } from "../core/generator/types";
+import { AutoOptions } from "../core/generator/types";
 
 interface Prompt {
   type: string;
@@ -21,6 +21,7 @@ interface AutoConfig {
   prefix?: string;
   useDefine?: boolean;
   singularize?: boolean;
+  caseProp?: AutoOptions['caseProp'];
 }
 
 export interface UserConfig {

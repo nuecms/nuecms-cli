@@ -530,7 +530,7 @@ export class AutoGenerator {
     }
 
     if (field !== fieldName) {
-      fieldOptions.field = field;
+      fieldOptions.field = quoteWrapper + field + quoteWrapper;
     }
 
     return fieldOptions;
