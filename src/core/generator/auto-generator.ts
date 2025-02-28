@@ -361,19 +361,20 @@ export class AutoGenerator {
     if (this.dialect.name === "mssql" && (["(NULL)", "NULL"].includes(defaultVal) || typeof defaultVal === "undefined")) {
       defaultVal = null as any; // Override default NULL in MS SQL to javascript null
     }
-
-    if (defaultVal === null || defaultVal === undefined) {
-      return true;
+    if (!fieldObj.primaryKey) {
+      if (defaultVal === null || defaultVal === undefined) {
+        return true;
+      }
     }
+
     if (isSerialKey) {
       return true; // value generated in the database
     }
 
+    const field_type = fieldObj.type.toLowerCase();
     let val_text = defaultVal;
     if (_.isString(defaultVal)) {
-      const field_type = fieldObj.type.toLowerCase();
       defaultVal = this.escapeSpecial(defaultVal);
-
       while (defaultVal.startsWith('(') && defaultVal.endsWith(')')) {
         // remove extra parens around mssql defaults
         defaultVal = defaultVal.replace(/^[(]/, '').replace(/[)]$/, '');
@@ -426,8 +427,12 @@ export class AutoGenerator {
       } else {
         val_text = quoteWrapper + defaultVal + quoteWrapper;
       }
-      return val_text;
+    } else {
+      if (field_type === 'char(36)' && fieldObj.primaryKey) {
+        val_text = "DataTypes.UUIDV4";
+      }
     }
+    return val_text;
   }
 
   private getFieldOptions(table: string, field: string): Record<string, any> {

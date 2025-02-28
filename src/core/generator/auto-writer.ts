@@ -114,8 +114,8 @@ export class AutoWriter {
       endOfLine: 'lf',
       parser: this.options.lang === 'ts' ? 'typescript' : 'babel'
     }, this.prettierConfig)
-    const formattedContent = await prettier.format(this.tableText[table], prettierOptions);
-    return writeFile(path.resolve(filePath), formattedContent);
+    const formattedContent = await prettier.format(this.tableText[table], prettierOptions)
+    return writeFile(path.resolve(filePath), formattedContent.replace(/\n{2,}/g, "\n"));
   }
 
   /** Create the belongsToMany/belongsTo/hasMany/hasOne association strings */

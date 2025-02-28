@@ -178,7 +178,7 @@ function processObject(obj: any, options: ProcessOptions): string[] {
   return output.concat(tables);
 }
 
-export function toSQL(tableName: string, object: any, options: ProcessOptions): string {
+export function toSQL(tableName: string, object: any, options?: ProcessOptions): string {
   if (typeof tableName !== 'string') {
     object = tableName;
     tableName = 'generic';

@@ -58,12 +58,12 @@ export async function handleAutoCommand(options: AutoCommandOptions): Promise<vo
         tables: options.tables,
         port: options.port,
         template: options.template,
-        prefix: options.prefix,
+        prefix: options.prefix
       }
     ) as AutoOptions;
 
     autoOptions.useDefine = autoOptions.useDefine ?? config?.auto?.useDefine ?? false;
-    autoOptions.singularize = config?.auto?.singularize ?? true;
+    autoOptions.singularize = config?.auto?.singularize ?? false;
     if (!autoOptions.template && typeof autoOptions.template !== 'boolean') {
       let templatePath = resolve(defaultTemplate);
       autoOptions.template = templatePath;
