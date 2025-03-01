@@ -21,6 +21,7 @@ export class AutoWriter {
   relations: Relation[];
   space: string[];
   options: {
+    template?: boolean | string;
     caseFile?: CaseFileOption;
     caseModel?: CaseOption;
     caseProp?: CaseOption;
@@ -72,18 +73,116 @@ export class AutoWriter {
       return tableName as string;
     }).sort();
 
+    const isTemplate = this.options.template && typeof this.options.template === 'string';
+
     // write the init-models file
     if (!this.options.noInitModels) {
       const initFilePath = path.join(this.options.directory, "init-models" + (isTypeScript ? '.ts' : '.js'));
-      const oldFileContent = fs.existsSync(initFilePath) ? fs.readFileSync(initFilePath, 'utf-8') : '';
-      const initString = this.createInitString(tableNames, oldFileContent, assoc, this.options.lang);
-      const writeFile = util.promisify(fs.writeFile);
-      const initPromise = writeFile(path.resolve(initFilePath), initString);
-      promises.push(initPromise);
+      if (isTemplate) {
+        const indexString = await this.createInitTemplateIndexString(isTypeScript);
+        const writeFile = util.promisify(fs.writeFile);
+        const indexPromise = writeFile(path.resolve(initFilePath), indexString);
+        promises.push(indexPromise);
+      } else {
+        const oldFileContent = fs.existsSync(initFilePath) ? fs.readFileSync(initFilePath, 'utf-8') : '';
+        const initString = this.createInitString(tableNames, oldFileContent, assoc, this.options.lang);
+        const writeFile = util.promisify(fs.writeFile);
+        const initPromise = writeFile(path.resolve(initFilePath), initString);
+        promises.push(initPromise);
+      }
     }
 
     return Promise.all(promises);
   }
+
+  /**
+   * Create an index file that imports and exports all model files in the directory
+   * Used when template mode is enabled
+   */
+  private async createInitTemplateIndexString(isTypeScript: boolean): Promise<string> {
+    const directory = this.options.directory;
+    const readdir = util.promisify(fs.readdir);
+    const files = await readdir(directory);
+
+    // Filter files to only include model files (exclude init-models and index files)
+    const modelFiles = files.filter(file => {
+      const ext = path.extname(file);
+      const name = path.basename(file, ext);
+      return (ext === '.js' || ext === '.ts') &&
+             name !== 'init-models' &&
+             name !== 'index';
+    });
+
+    let imports = '';
+    let exports = '';
+    const sp = this.space[1];
+
+    if (isTypeScript) {
+      imports += 'import type { Sequelize } from "sequelize";\n\n';
+
+      // Generate imports for each model file - simplified without Attributes
+      modelFiles.forEach(file => {
+        const name = path.basename(file, path.extname(file));
+        const modelName = recase(this.options.caseModel, name, false);
+        imports += `import ${modelName} from "./${name}";\n`;
+      });
+
+      // Generate model exports
+      exports += '\nexport {\n';
+      modelFiles.forEach(file => {
+        const name = path.basename(file, path.extname(file));
+        const modelName = recase(this.options.caseModel, name, false);
+        exports += `${sp}${modelName},\n`;
+      });
+      exports += '};\n\n';
+
+      // Generate default export with all models
+      exports += 'export default {\n';
+      modelFiles.forEach(file => {
+        const name = path.basename(file, path.extname(file));
+        const modelName = recase(this.options.caseModel, name, false);
+        exports += `${sp}${modelName},\n`;
+      });
+      exports += '};\n';
+    } else {
+      // For JavaScript
+      modelFiles.forEach(file => {
+        const name = path.basename(file, path.extname(file));
+        const modelName = recase(this.options.caseModel, name, false);
+        imports += `const { ${modelName} } = require("./${name}");\n`;
+      });
+
+      // Generate exports
+      exports += '\nmodule.exports = {\n';
+      modelFiles.forEach(file => {
+        const name = path.basename(file, path.extname(file));
+        const modelName = recase(this.options.caseModel, name, false);
+        exports += `${sp}${modelName},\n`;
+      });
+      exports += '};\n';
+    }
+
+    // Format the final string with prettier if available
+    const indexString = imports + exports;
+
+    if (this.prettierConfig) {
+      const prettierOptions: prettier.Options = _.merge({}, {
+        printWidth: 120,
+        semi: isTypeScript,
+        singleQuote: true,
+        bracketSpacing: true,
+        trailingComma: 'none',
+        tabWidth: 2,
+        endOfLine: 'lf',
+        parser: isTypeScript ? 'typescript' : 'babel'
+      }, this.prettierConfig);
+
+      return prettier.format(indexString, prettierOptions);
+    }
+
+    return indexString;
+  }
+
   private createInitString(tableNames: string[], oldFileContent: string, assoc: string, lang?: string) {
     switch (lang) {
       case 'ts':
