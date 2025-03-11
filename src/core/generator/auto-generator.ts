@@ -65,13 +65,16 @@ export class AutoGenerator {
    */
   generateTextByTemplate() {
     const tableNames = _.keys(this.tables);
-    const template = this.loadTemplate(); // 加载自定义模板
+    const template = this.loadTemplate();
 
     const text: { [name: string]: string; } = {};
     tableNames.forEach(table => {
       const [schemaName, tableNameOrig] = qNameSplit(table);
       const tableName = makeTableName(this.options.caseModel, tableNameOrig, this.options.singularize, this.options.lang);
       const useName = cutPrefix(this.options.prefix, tableName);
+
+      // Get relations for this table
+      const relations = this.getRelationsForTemplate(table);
 
       // 准备模板数据
       const templateData = {
@@ -80,6 +83,7 @@ export class AutoGenerator {
         schemaName,
         fields: this.getFieldsForTemplate(table),
         indexes: this.getIndexesForTemplate(table),
+        relations,
         options: this.options,
       };
 
@@ -90,7 +94,66 @@ export class AutoGenerator {
     return text;
   }
 
+  /**
+   * Get relations data for template rendering
+   */
+  private getRelationsForTemplate(table: string): any[] {
+    const relations: any[] = [];
+    table = this.addSchemaForRelations(table);
 
+    this.relations.forEach(rel => {
+      if (!rel.isM2M) {
+        if (rel.childTable === table) {
+          // current table belongsTo parent
+          // Remove prefix from model name and as property
+          const modelName = this.removePrefix(rel.parentModel);
+          const asName = this.removePrefix(recase(this.options.caseProp, rel.parentProp));
+          relations.push({
+            type: 'belongsTo',
+            model: modelName,
+            as: asName,
+            foreignKey: rel.parentId
+          });
+        } else if (rel.parentTable === table) {
+          // current table hasOne/hasMany child
+          // Remove prefix from model name and as property
+          const modelName = this.removePrefix(rel.childModel);
+          const asName = this.removePrefix(recase(this.options.caseProp, rel.childProp));
+          relations.push({
+            type: rel.isOne ? 'hasOne' : 'hasMany',
+            model: modelName,
+            as: asName,
+            foreignKey: rel.parentId
+          });
+        }
+      } else {
+        // many-to-many relation
+        if (rel.parentTable === table) {
+          // Remove prefix from model name and as property
+          const modelName = this.removePrefix(rel.childModel);
+          const asName = this.removePrefix(recase(this.options.caseProp, pluralize(rel.childProp)));
+          relations.push({
+            type: 'belongsToMany',
+            model: modelName,
+            as: asName,
+            through: this.removePrefix(rel.joinModel),
+            foreignKey: rel.parentId,
+            otherKey: rel.childId
+          });
+        }
+      }
+    });
+
+    return relations;
+  }
+
+  /**
+   * Remove prefix from model name
+   * For example: bs_user -> user, bs_workorder -> workorder
+   */
+  private removePrefix(name: string): string {
+    return cutPrefix(this.options.prefix, name);
+  }
 
   /**
    * 获取字段数据，用于模板渲染
