@@ -44,6 +44,23 @@ export interface UserConfig {
   };
 }
 
+
+export interface PluginConfig {
+  name: string;
+  version: string;
+  description: string;
+  settings: {
+    [key: string]: any;
+  }
+  [key: string]: any;
+}
+
+
 export function defineConfig(config: UserConfig): UserConfig {
+  return config;
+}
+
+
+export function definePluginConfig(config: PluginConfig): PluginConfig {
   return config;
 }
