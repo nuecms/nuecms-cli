@@ -35,6 +35,7 @@ export class AutoWriter {
     spaces?: boolean;
     indentation?: number;
     prefix?: string;
+    ignore?: string[];
   };
   prettierConfig: prettier.Options | undefined;
   constructor(tableData: TableData, options: AutoOptions) {
@@ -108,9 +109,22 @@ export class AutoWriter {
     const modelFiles = files.filter(file => {
       const ext = path.extname(file);
       const name = path.basename(file, ext);
+
+      // Check if the file should be ignored based on options.ignore array
+      const shouldIgnore = Array.isArray(this.options.ignore) &&
+        this.options.ignore.some(ignoredFile => {
+          // If ignoredFile contains an extension, do an exact match
+          if (path.extname(ignoredFile)) {
+            return file === ignoredFile;
+          }
+          // Otherwise, match just the basename
+          return name === ignoredFile || file === ignoredFile;
+        });
+
       return (ext === '.js' || ext === '.ts') &&
              name !== 'init-models' &&
-             name !== 'index';
+             name !== 'index' &&
+             !shouldIgnore;
     });
 
     let imports = '';

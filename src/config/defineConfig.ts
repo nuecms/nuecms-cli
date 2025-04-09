@@ -22,6 +22,7 @@ interface AutoConfig {
   useDefine?: boolean;
   singularize?: boolean;
   caseProp?: AutoOptions['caseProp'];
+  ignore?: string[]; // Add this line to support ignore files
 }
 
 export interface UserConfig {

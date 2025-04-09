@@ -189,6 +189,8 @@ export interface AutoOptions {
   template?: string | false;
 
   prefix?: string; // Prefix for the generated models
+
+  ignore?: string[]; // Array of file names or patterns to ignore
 }
 
 export type TSField = { special: string[]; elementType: string; } & ColumnDescription;
